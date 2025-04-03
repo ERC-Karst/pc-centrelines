@@ -5,7 +5,7 @@ import open3d as o3d
 from itertools import permutations, combinations
 from scipy.sparse.csgraph import minimum_spanning_tree
 from sklearn.neighbors import kneighbors_graph
-from base.utils import  rotate, centre_of_gravity
+from base.geometry import  rotate
 from time import time
 
 # analytical solution for a cylinder. 
@@ -40,7 +40,7 @@ def levi_civita_tensor(n):
         
     return arr 
 
-def mesh_intersect(theMesh, P, nP):
+def mesh_intersect(theMesh, P, nP, verbose= False):
     """
     Computes the intersection between a mesh and plane defined by a point and normal vector.
     Requires an adjacency matrix for touching triangles in the mesh to move from triangle
@@ -138,6 +138,9 @@ def mesh_intersect(theMesh, P, nP):
         M1M2[c] = [M_i1, M_i2]
         nOmega[c] = norm
 
+    if len(M) == 0:
+        raise ValueError
+    
     # select the cluster closest to point P. 
     point_cloud = o3d.geometry.PointCloud()
     point_cloud.points = o3d.utility.Vector3dVector(M)
@@ -149,9 +152,8 @@ def mesh_intersect(theMesh, P, nP):
     cc_sizes = [np.sum(dbscan_labels == c) for c in np.unique(dbscan_labels)  if c >=0]
 
     n_cc = len(cc_sizes)
-
-
-    print(f"found {n_cc} connected components.")
+    if verbose == True:
+        print(f"there are {n_cc} connected components.")
 
     if n_cc > 1:
         # select first largest
@@ -160,24 +162,41 @@ def mesh_intersect(theMesh, P, nP):
         
         # select second largest
         cc1 = np.argmax(cc_sizes)    
+        cc_sizes[cc1] = 0
+
+        # select third largest
+
+        cc2 = np.argmax(cc_sizes)    
+        # find the two largest openings. 
         # find the two largest openings. 
 
         cc0_bool = dbscan_labels == cc0
         cc1_bool = dbscan_labels == cc1
+        cc2_bool = dbscan_labels == cc2
 
         P_mean_ring0 = np.linalg.norm(P - np.mean(M[cc0_bool], axis = 0))
         P_mean_ring1 = np.linalg.norm(P - np.mean(M[cc1_bool], axis = 0))
+        P_mean_ring2 = np.linalg.norm(P - np.mean(M[cc2_bool], axis = 0))
 
-        if P_mean_ring0 < P_mean_ring1:
+        if verbose == True:
+            print(P_mean_ring0, P_mean_ring1, P_mean_ring2)
+
+        if P_mean_ring0 < P_mean_ring1 and P_mean_ring0 < P_mean_ring2:
             # use ring 0
             M = M[cc0_bool].copy()
             M1M2 =  M1M2[cc0_bool].copy()
             nOmega = nOmega[cc0_bool].copy()
-        else:
-            # use ring 1
+            
+        elif P_mean_ring1 < P_mean_ring2:
+        # use ring 1
             M = M[cc1_bool].copy()
             M1M2 =  M1M2[cc1_bool].copy()
             nOmega = nOmega[cc1_bool].copy()
+        else:
+            # use ring 2
+            M = M[cc2_bool].copy()
+            M1M2 =  M1M2[cc2_bool].copy()
+            nOmega = nOmega[cc2_bool].copy()
 
 
     # compute the kneighbours graph
@@ -255,8 +274,51 @@ def mesh_intersect(theMesh, P, nP):
 
     return M[best_path], nOmega_ord, M1M2_ord, W, area, nP
 
+def dumb_area_minimiser(theMesh,  P, nP0, niter=40, eps=1e-1, global_shift = np.zeros(3), verbose = False):
+    # define the plane of section by a point and its normal. 
+    nP = nP0 / np.linalg.norm(nP0)
 
-def minimise_area(theMesh,  P, nP0, niter=20, eps=1e-1, global_shift = np.zeros(3), verbose = False):
+
+    i = 0
+    # initialise some lists to keep log of the algorithm progress.
+    log = []
+    log.append(mesh_intersect(theMesh, P+global_shift,nP))
+
+    while i < niter:
+        # get the intersection dictionary given a current plane normal nP
+    
+        W = log[-1][3]
+        A = log[-1][4]
+        nP = log[-1][5]
+
+        normW = np.linalg.norm(W)
+
+        if verbose==True:
+            print(A)
+            print(f"||W || / |A| = {normW / np.abs(A):.3f}")
+            print(f"{i}th iteration, normal_vector: ", np.round(nP, 2))
+
+        if normW / np.abs(A) < eps:
+            msg =f"normed W / A already within desired tolerance of {eps}"
+            return log, msg, i
+
+        else:
+            if verbose == True:
+                print("updating the normal.")
+            # amount of rotation is given by the norm of W
+            
+            R = rotate(W / normW, normW / np.abs(A)) 
+            nP_prime = R @ nP
+
+            nP_prime /= np.linalg.norm(nP_prime)
+
+            log.append(mesh_intersect(theMesh, P+global_shift,nP_prime))
+            i+=1
+
+    msg =f"normed W / A did not reach the desired tolerance of {eps}"
+    return log, msg , i
+
+def minimise_area(theMesh,  P, nP0, niter=20, eps=0.2, global_shift = np.zeros(3), verbose = False):
     s = time()
     # define the plane of section by a point and its normal. 
     nP = nP0
@@ -264,7 +326,12 @@ def minimise_area(theMesh,  P, nP0, niter=20, eps=1e-1, global_shift = np.zeros(
     i = 0
     # initialise some lists to keep log of the algorithm progress.
     log = []
-    log.append(mesh_intersect(theMesh, P+global_shift,nP))
+    try:
+        log.append(mesh_intersect(theMesh, P+global_shift,nP))
+    except ValueError:
+        print("likely empty intersection")
+        i = niter
+        pass
 
     while i < niter:
         # get the intersection dictionary given a current plane normal nP
@@ -291,13 +358,13 @@ def minimise_area(theMesh,  P, nP0, niter=20, eps=1e-1, global_shift = np.zeros(
         # two rotations are possible around a unit vector colinear with W
             # amount of rotation is given by the norm of W
             
-            R1 = rotate(W / normW, -0.25* normW / np.abs(A)) 
+            R1 = rotate(W / normW, 0.5*normW / np.abs(A)) 
     
-            R2 = rotate(W / normW, 0.25*normW / np.abs(A)) 
+            R2 = rotate(W / normW, -0.5*normW / np.abs(A)) 
 
 
-            intersect_1 = mesh_intersect(theMesh, P+global_shift,(nP @ R1).flatten())
-            intersect_2 = mesh_intersect(theMesh, P+global_shift,(nP @ R2).flatten())
+            intersect_1 = mesh_intersect(theMesh, P+global_shift,(R1 @ nP))
+            intersect_2 = mesh_intersect(theMesh, P+global_shift,(R2 @ nP))
 
             nP1 = intersect_1[5]
             nP2 = intersect_2[5]
@@ -364,7 +431,8 @@ def minimise_area(theMesh,  P, nP0, niter=20, eps=1e-1, global_shift = np.zeros(
 def iterative_pathfinder(mesh_data, P_start, P_end, nP0, 
                          L = 10, 
                          ds= 0.5, 
-                         verbose= False)-> dict:
+                         verbose= False,
+                         minimise_strategy = "fancy")-> dict:
     # initialise the position along the conduit. 
     P = P_start
     nP = nP0
@@ -382,49 +450,62 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
     epsilon = ds / 2
     d = L 
     # where 2 * L is the expected maximum curvilinear length of the centreline walk. 
-    max_it = np.floor(2*L / ds)
+    max_it = np.floor(L / ds)
+    print(max_it)
+
     k = 0
 
     while d > epsilon and k < max_it: 
         # check that we are indeed farther away from the end point than at least one epsilon.
         assert d > epsilon
 
-        log, _, _, iterations = minimise_area(mesh_data, P, nP, verbose = verbose)
         
-        best_section = log[-1][0]
-        n_it.append(iterations)
-        vertices.append(best_section)
-        areas.append(log[-1][4])
+        try:
+            if minimise_strategy == "dumb":
+                log, _, iterations = dumb_area_minimiser(mesh_data, P, nP, verbose = verbose)
+            elif minimise_strategy =="fancy":
+                log, _, _, iterations = minimise_area(mesh_data, P, nP, verbose = verbose)
+            else:
+                print("invalid minimising strategy chosen.")
 
-        # extract the reoriented normal
-        nP_new = log[-1][5]
+            best_section = log[-1][0]
+            n_it.append(iterations)
+            vertices.append(best_section)
+            areas.append(log[-1][4])
 
-        # calculate the centre of gravity of the best polyline section found by area minimisation 
-        cog =  np.mean(best_section, axis = 0)
-        print("centre of gravity of best section", cog)
-        ct[-1] = cog
+            # extract the reoriented normal
+            nP_new = log[-1][5]
 
-        
-        
-        # check we are moving in the same half space as the one defined by the previous normal vector.
-        step_sign = np.sign(nP @ nP_new)
-        # step in this direction
-        P = cog + ds*nP_new*step_sign
-        # update the current normal vector value.
-        nP = nP_new*step_sign
+            # calculate the centre of gravity of the best polyline section found by area minimisation 
+            cog =  np.mean(best_section, axis = 0)
+            print("centre of gravity of best section", cog)
+            ct[-1] = cog
 
-        if verbose == True:
-            print(f"moving by step: {np.round(nP, 3)} to {np.round(P, 3)}.")
+            
+            
+            # check we are moving in the same half space as the one defined by the previous normal vector.
+            step_sign = np.sign(nP @ nP_new)
+            # step in this direction
+            P = cog + ds*nP_new*step_sign
+            # update the current normal vector value.
+            nP = nP_new*step_sign
 
-        # update the centreline and normal vector log
-        ct.append(P)
-        normals.append(nP)
+            if verbose == True:
+                print(f"moving by step: {np.round(nP, 3)} to {np.round(P, 3)}.")
 
-        d = np.linalg.norm(P_end-P) # check the distance threshold
-        k+=1 # update the iteration counter
+            # update the centreline and normal vector log
+            ct.append(P)
+            normals.append(nP)
 
-        if verbose == True:
-            print(f"now moving to distance {d} from the end point.")
+            d = np.linalg.norm(P_end-P) # check the distance threshold
+            k+=1 # update the iteration counter
+
+            if verbose == True:
+                print(f"now moving to distance {d} from the end point.")
+        except (ValueError, IndexError):
+            print("stopping process at empty intersection")
+            k = max_it
+            pass
 
     result = {"centreline": np.array(ct), 
               "vertices": vertices, 

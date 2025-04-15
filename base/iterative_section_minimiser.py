@@ -2,9 +2,9 @@ import numpy as np
 import networkx as nx
 import open3d as o3d
 
-from itertools import permutations, combinations
+from itertools import permutations
 from scipy.sparse.csgraph import minimum_spanning_tree
-from sklearn.neighbors import kneighbors_graph
+from sklearn.metrics import pairwise_distances
 from base.geometry import  rotate
 from time import time
 
@@ -198,41 +198,20 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
             M1M2 =  M1M2[cc2_bool].copy()
             nOmega = nOmega[cc2_bool].copy()
 
+    
+    pwdist = pairwise_distances(M)
+    
+    thetree = minimum_spanning_tree(pwdist)
+    G = nx.Graph(thetree)
 
-    # compute the kneighbours graph
-    knn_graph = kneighbors_graph(M, n_neighbors=10, mode = "distance")
+    # find the longest path in a tree using two successive bfs searches. 
+    bfs_1 = nx.bfs_tree(G, 0)
+    first_endpoint = list(bfs_1.edges())[-1][-1]
 
-    # compute a minimum spanning tree graph
-    tree = minimum_spanning_tree(knn_graph)
-    tree = tree.tocoo()
+    bfs_2 = nx.bfs_tree(G, first_endpoint)
+    second_endpoint = list(bfs_2.edges())[-1][-1]
 
-    # extract the edge indices
-    ids1 = tree.row
-    ids2 = tree.col
-
-    # build a networkx graph 
-    G = nx.Graph(np.array([ids1, ids2]).T.tolist())
-    degree_as_array = np.array(list(G.degree))
-    # identify nodes of degree-1
-    leaves = degree_as_array[np.argwhere(degree_as_array[:, 1] == 1).flatten(), 0]
-
-    # find the longest path joining any combination of two leaves: this 
-    # ensures we reorder the section vertices in order, even if the intersection
-    # of a plane to surface is "incomplete".
-    l = 0
-    best_path = None
-
-    for combi in combinations(leaves, 2):
-        source = combi[0]
-        target = combi[1]
-        try:
-            path = nx.shortest_path(G, source, target)
-            if len(path) > l:
-                best_path = path
-                l = len(path)
-
-        except nx.NetworkXNoPath: 
-            pass
+    best_path = nx.shortest_path(G, first_endpoint, second_endpoint)
 
     # segments need to be in order. 
     M1M2_ord = np.zeros((n, 2, 3))

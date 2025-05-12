@@ -9,6 +9,64 @@ import networkx as nx
 import mistree_pp as mist
 from sklearn.neighbors import NearestNeighbors
 from itertools import combinations
+from tqdm import tqdm
+from stl import mesh
+
+from os import listdir
+from os.path import normpath, join
+
+
+def list_all_centrelines(repository):
+
+    # list the different cave directories at the root directory level
+    caves = [elem for elem in listdir(repository) if "." not in elem]
+
+    # find unique passage filepaths
+    passages_filepaths = []
+    for cave in caves:
+        # list all directory names within data
+        new_passages = [elem for elem in listdir(join(repository, cave)) if "." not in elem]
+        for new_passage in new_passages:
+            passages_filepaths.append(normpath(join(repository, cave, new_passage, "geometric_descriptors", f"{cave}_{new_passage}_centreline.txt")))
+    
+    return passages_filepaths
+
+
+def list_all_plymeshes(repository):
+
+    # list the different cave directories at the root directory level
+    caves = [elem for elem in listdir(repository) if "." not in elem]
+
+    # find unique passage filepaths
+    passages_filepaths = []
+    for cave in caves:
+        # list all directory names within data
+        new_passages = [elem for elem in listdir(join(repository, cave)) if "." not in elem]
+        for new_passage in new_passages:
+            passages_filepaths.append(normpath(join(repository, cave, new_passage, "mesh", f"{cave}_{new_passage}_mesh_5cm.ply")))
+    
+    return passages_filepaths
+
+# introspection and conversion to stl format.
+def load_ply(filepath):
+    meshply = cc.loadMesh(filepath)
+
+    cloud = meshply.getAssociatedCloud()
+    N = meshply.size()
+
+    mesh_vectors = np.zeros((N, 3, 3))
+
+    for c in tqdm(range(N)):
+        triangle_indices = meshply.getTriangleVertIndexes(c)
+        for vertex in range(3):
+            mesh_vectors[c, vertex] = np.array(cloud.getPoint(triangle_indices[vertex]))
+
+    meshstl = mesh.Mesh(np.zeros(len(mesh_vectors), dtype=mesh.Mesh.dtype))
+
+    meshstl.vectors = mesh_vectors
+    meshstl.update_centroids()
+    meshstl.update_normals()
+    return meshstl
 
 def open_las(filepath: str) -> np.ndarray:
     with laspy.open(filepath) as file_header:
@@ -62,7 +120,15 @@ def array_to_o3d(pointcloud: np.ndarray):
 
     return cloud
 
+# at each point in the centreline, use its two neighbours to estimate the passage direction. 
+def return_centreline_parametrisation(centreline):
 
+    vectors = centreline[:-2] - centreline[2:]
+    norm_vectors = np.linalg.norm(vectors, axis=1)
+    normed_vectors = vectors / np.expand_dims(norm_vectors, -1)
+    curvilinear_coords = np.cumsum(np.linalg.norm(vectors, axis =1))[:-1]
+
+    return curvilinear_coords, normed_vectors
 
 ## Mesh intersections 
 
@@ -218,28 +284,22 @@ def return_rings(mesh, adjacent_triangles)-> dict:
     cc_sizes = [np.sum(dbscan_labels == c) for c in np.unique(dbscan_labels)  if c >=0]
 
     # select first largest
-    cc0 = np.argmax(cc_sizes)    
-    cc_sizes[cc0] = 0
-    
-    # select second largest
-    cc1 = np.argmax(cc_sizes)    
-    # find the two largest openings. 
-    ring1 = edge_centroids[dbscan_labels == cc0]
-    ring2 = edge_centroids[dbscan_labels == cc1]
+    n_clusters = len(np.unique(dbscan_labels))
+    c = 1
 
-    print(f"found ring 1 with {len(ring1)} points.")
-    print(f"found ring 2 with {len(ring2)} points.")
+    rings = {}
+    nPi = []
+    Pi = []
 
-    P1, nP1 = adjust_plane(ring1)
-    P2, nP2 = adjust_plane(ring2)
+    while c <= n_clusters:
+        cc0 = np.argmax(cc_sizes)    
+        cc_sizes[cc0] = 0
 
-    # reorient the normals towards the conduit. 
-    # check whether scalar product between normal solution and centre of mass of neighbouring points
-    # is positive or negative, and flip accordingly. 
+        ring = edge_centroids[dbscan_labels == cc0]
+        P, nP = adjust_plane(ring)
+        
+        #print(f"found ring  with {len(ring)} points.")
 
-
-    for P, nP in zip((P1,P2), (nP1, nP2)):
-        # subsample nearby points.
         within_range = np.linalg.norm(mesh.centroids - P, axis =1) < 10
         within_plane = np.abs((mesh.centroids - P) @ nP) < 2
 
@@ -250,6 +310,42 @@ def return_rings(mesh, adjacent_triangles)-> dict:
         if (com_neighbours - P) @ nP < 0:
             nP *= -1
 
+        rings[f"ring{c}"] =  ring
+        rings[f"P{c}"] =  P
+        rings[f"nP{c}"] =  nP
+        
+        c+=1
 
-    return dict(ring1=ring1, P1=P1, nP1=nP1, ring2=ring2,  P2=P2, nP2=nP2)
+    return rings
+    
+    # # select second largest
+    # cc1 = np.argmax(cc_sizes)    
+    # # find the two largest openings. 
+    # ring1 = edge_centroids[dbscan_labels == cc0]
+    # ring2 = edge_centroids[dbscan_labels == cc1]
+
+    # print(f"found ring 2 with {len(ring2)} points.")
+
+    # P1, nP1 = adjust_plane(ring1)
+    # P2, nP2 = adjust_plane(ring2)
+
+    # # reorient the normals towards the conduit. 
+    # # check whether scalar product between normal solution and centre of mass of neighbouring points
+    # # is positive or negative, and flip accordingly. 
+
+
+    # for P, nP in zip(Pi), (nPi):
+    #     # subsample nearby points.
+    #     within_range = np.linalg.norm(mesh.centroids - P, axis =1) < 10
+    #     within_plane = np.abs((mesh.centroids - P) @ nP) < 2
+
+    #     neighbours = mesh.centroids[np.logical_and(within_plane, within_range)]
+    #     com_neighbours = np.mean(neighbours, axis =0)
+
+    #     # check scalar product sign, flip normal if necessary. 
+    #     if (com_neighbours - P) @ nP < 0:
+    #         nP *= -1
+
+
+    # return dict(ring1=ring1, P1=P1, nP1=nP1, ring2=ring2,  P2=P2, nP2=nP2)
 

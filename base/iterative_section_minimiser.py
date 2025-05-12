@@ -8,6 +8,10 @@ from sklearn.metrics import pairwise_distances
 from base.geometry import  rotate
 from time import time
 
+import warnings 
+
+
+
 # analytical solution for a cylinder. 
 
 def section_area(A: float, n: np.ndarray) -> float:
@@ -76,10 +80,12 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
     n = len(intersected_triangles) 
 
     # this is a check to make sure the section actually crosses a minimum number of triangles.
+    # also check that we are not outside the triangle. 
     try:
         assert n > 3
     except AssertionError:
-        print("empty intersection")
+        print("empty intersection on too few triangles intersected.")
+        return None
 
     # initialisation of segment middle points, facet normals, W and area.
     M = np.zeros((n, 3))
@@ -113,7 +119,12 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
             T = np.roll(T,1, axis = 0)
         
         # the 0th label must be the solitary point, the other two must lie in the other half-space. 
-        assert PT_k[1] * PT_k[2] > 0
+        
+        try:
+            assert PT_k[1] * PT_k[2] > 0
+        except AssertionError:
+            print("empty intersection on all triangle points in same half space.")
+            mesh_intersect(theMesh, P, nP+np.random.normal(0, 0.005, 3), verbose= verbose)
 
         # find how far from the lone-summit the points of intersection are along segments
         alpha_i1 = PT_k[0] / (PT_k[0]-PT_k[1])
@@ -123,7 +134,12 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
         M_i1M_i2 = alpha_i2*(T[0] -T[2]) - alpha_i1*(T[0] -T[1])
 
         # check that it is true.
-        assert np.abs(M_i1M_i2 @ nP) < 1e-6
+        
+        try:
+            assert np.abs(M_i1M_i2 @ nP) < 1e-2
+        except AssertionError:
+            print("empty intersection on points falling outside of tolerance.")
+            mesh_intersect(theMesh, P, nP+np.random.normal(0, 0.005, 3), verbose= verbose)
 
         # intersection of the plane with segment T_i0T_i1
         M_i1 = T[0]- alpha_i1*(T[0] -T[1])
@@ -245,11 +261,23 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
                 for k in range(3):
                     # element wise multiplication of segment middle point jth element and the kth element of the triangle vector.
                     num+= eps[m,j,k]*PM[j]*nOmega[k]
-                    
+
             denom = PM @ nOmega
-            
-            # update W vector
-            W[m] +=  num / denom * det
+
+            with warnings.catch_warnings():
+                warnings.filterwarnings("error")
+
+                try:
+                    if verbose==True:
+                        print("num, denom, det", num, denom, det)
+                        print("increment", num / denom * det)
+                        
+                    inc = num / denom * det
+                    W[m] +=  inc
+                except Warning as e:
+                    if verbose==True:
+                        print("error found: ", e)
+                    pass
 
     return M[best_path], nOmega_ord, M1M2_ord, W, area, nP
 

@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.spatial import ConvexHull
 from sklearn.metrics import pairwise_distances
+from shapely import Polygon, LineString, get_coordinates
+from shapely.ops import split
+
 
 def compute_ngon_perimeter(a: np.ndarray) -> float:
     """compute_ngon_perimeter calculates the perimeter of a closed polygon 
@@ -191,7 +194,8 @@ def rotate(u, theta):
 def fit_ellipse(points2d, verbose = False):
 
     # first part is PCA transform of the shape. 
-    X = points2d
+    mean_points2d = np.mean(points2d, axis = 0)
+    X = points2d - mean_points2d
 
     G = centre_of_gravity(X)
     area = compute_ngon_area(X)
@@ -201,21 +205,28 @@ def fit_ellipse(points2d, verbose = False):
     # eigen value decomposition
     D, S = np.linalg.eig(Sigma)
     
-    aspect_ratio = np.sqrt(D[0] / D[1])
+    # find out the largest eigenvalue
+    D_sorted = D[np.argsort(D)[::-1]]
+    aspect_ratio = np.sqrt(D_sorted[0] / D_sorted[1])
+
+    ellipse_rotation = np.rad2deg(np.arccos(S[np.argsort(D)[::-1]][0, 1]))
 
     if verbose == True:
+        print(G, area)
         print(D, S)
+        print(aspect_ratio)
+        
     D = np.diag(D)
     # k is a scaling factor to make the ellipse area equal to that of the ngon 
     k = np.sqrt(area  / (np.sqrt(np.linalg.det(Sigma))*np.pi))
     # determined ellipse
     t = np.linspace(0,2*np.pi,500)
     Y = np.vstack((np.cos(t), np.sin(t)))
-    determined_ellipse = (k * S @ np.sqrt(D) @ Y).T + G
+    determined_ellipse = (k * S @ np.sqrt(D) @ Y).T + G + mean_points2d
     ellipse_area = compute_ngon_area(determined_ellipse)
     ellipse_perimeter = compute_ngon_perimeter(determined_ellipse)
     
-    return determined_ellipse, ellipse_area, ellipse_perimeter, aspect_ratio
+    return determined_ellipse, ellipse_area, ellipse_perimeter, aspect_ratio, S, D_sorted, ellipse_rotation
 
 def householder_transform(u: np.ndarray) -> np.ndarray:
     """Return the Householder transformation of vector u / it is a reflection about a hyperplan containin the origin
@@ -278,11 +289,12 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
         )
 
     if np.allclose(t, R @ f, 0.001):
-        if verbose == "True":
+        if verbose == True:
             print("Rotation successful")
         return R
     else:
-        print("Rotation unsuccessful")
+        if verbose == True:
+            print("Rotation unsuccessful")
         return R
     
 def to2D(points3d, nP):
@@ -344,3 +356,133 @@ def compute_polygon_solidity(a: np.ndarray):
     area_hull = compute_ngon_area(a[c_hull.vertices])
     area_polygon = compute_ngon_area(a)
     return area_polygon / area_hull
+
+
+def return_below_fill_height(section, fill_height):
+    polysection = Polygon(section)
+    
+    minx, miny = np.min(section, axis = 0)
+    maxx, maxy = np.max(section, axis = 0)
+    bounds = [minx, maxx, miny, maxy]
+    
+    line = LineString([[bounds[0], bounds[2]+fill_height*(bounds[3]-bounds[2])], [bounds[1],bounds[2]+fill_height*(bounds[3]-bounds[2])]])
+    split_sections = split(polysection, line)
+
+    filled_areas = []
+
+    for split_section in split_sections.geoms:
+        linear_ring = get_coordinates(split_section.exterior)
+
+        if np.max(linear_ring[:, 1]) == bounds[2]+fill_height*(bounds[3]-bounds[2]):
+            filled_areas.append(linear_ring)
+
+    return filled_areas
+
+def get_full_area(section, fill_height):
+    filled_areas = return_below_fill_height(section, fill_height)
+    full_area = 0
+    for filled_area in filled_areas:
+        full_area+= compute_ngon_area(filled_area)
+    return full_area
+
+def compute_ngon_wetted_perimeter(a: float, atol = 1e-3, keeptop=False) -> float:
+    """
+    calculates the ahydraulic radius of a closed polygon whose vertex i coordinates are given by x[i] and y[i]
+    
+
+    ----------
+    
+    arguments:
+
+        a -> scalar: area of a section
+        p -> scalar: perimeter of a section 
+
+    ----------
+    
+    returns :
+
+        wetted perimeter -> float : the area in input units squared 
+    """
+    
+    # find near horizontal sections.
+    y = a[:, 1]
+
+    horizontal = (np.roll(y,1, axis = 0) - y)**2 < atol**2
+    # are they near the top, if so remove them.
+    near_ymax = (y - np.max(y))**2 < atol**2
+
+    if keeptop == False:
+        keep = ~np.logical_and(horizontal, near_ymax)
+    else:
+        keep = np.ones(len(a)).astype(bool)
+
+
+    return np.sqrt(np.sum(((np.roll(a,1, axis = 0) - a)**2)[keep], axis = 1)).sum()
+
+
+def compute_composite_dh(section, fill_fraction):
+    filled_areas = return_below_fill_height(section, fill_fraction)
+
+    wp = 0
+    area = 0
+
+    if fill_fraction == 1:
+        assert len(filled_areas) == 1
+        wp+= compute_ngon_perimeter(filled_areas[0])
+        area += compute_ngon_area(filled_areas[0])
+        
+    else:
+        for filled_area in filled_areas:
+            wp += compute_ngon_wetted_perimeter(filled_area)
+            area += compute_ngon_area(filled_area)
+
+
+
+    if wp ==0:
+        return 0
+    else:
+        return 2*area / wp
+    
+def describe(section: np.ndarray) -> dict:
+
+    # call all predefined geometry functions
+    cog = centre_of_gravity(np.vstack([section.T, np.zeros(len(section))]).T)[:-1]
+    area = compute_ngon_area(section)
+    perimeter = compute_ngon_perimeter(section)
+    max_chord_length = compute_max_pairwise_distance(section)
+    rmax = compute_rmax(section, cog)
+    rmin = compute_rmin(section, cog)
+    r_average = compute_rave(section, cog)
+    solidity = compute_polygon_solidity(section)
+    hydraulic_diameter = compute_ngon_dh(area, perimeter)
+    circular_variance = compute_circular_variance(section, cog, area)
+
+    _, ellipse_area, _, ellipse_aspect_ratio, ellipse_axes, ellipse_eigenvalues, ellipse_rotation = fit_ellipse(section)
+
+    description = dict( 
+    cog = cog,
+    area = area,
+    ellipse_area= ellipse_area,
+    ellipse_aspect_ratio = ellipse_aspect_ratio,
+    ellipse_axes = ellipse_axes,
+    ellipse_eigenvalues = ellipse_eigenvalues,
+    ellipse_rotation= ellipse_rotation, 
+    perimeter = perimeter,
+    solidity = solidity,
+    hydraulic_diameter = hydraulic_diameter,
+    max_chord_length = max_chord_length,
+    rmax = rmax,
+    rmin = rmin,
+    r_average = r_average,
+    circularity = rmin / rmax,
+    circularity2 = perimeter **2 / area,
+    gravelius_compactness = perimeter **2 / (2* np.sqrt(np.pi*area)),
+    circularity3 = (rmax - rmin) / rmin,
+    deviation_from_inscribed_disk = np.pi * rmin**2 / area,
+    deviation_from_circumsribed_disk = np.pi * rmax**2 / area,
+    elongation = 4 / np.pi *  (area / r_average**2),
+    isoperimetric_deficiency = 4* np.pi * area / perimeter**2,
+    morton_spreading_index = 4 / np.pi * (area / max_chord_length**2),
+    circular_variance = circular_variance)
+
+    return description

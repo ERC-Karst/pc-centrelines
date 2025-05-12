@@ -6,7 +6,7 @@ from subprocess import check_output
 from stl import mesh
 from base.utils import find_neighbours_with_knn, return_rings
 from base.centreline import *
-from centreline import simplify, spline
+from base.centreline import simplify, spline
 
 __all__ = ['return_MST_centrelines']
 
@@ -19,7 +19,7 @@ def return_MST_centrelines(mesh_path, voxset_path,
     
     conduit_name = split(mesh_path)[-1].strip(".stl")
 
-    voxelize_path = abspath(normpath(f"./centerline/voxelize.exe"))
+    voxelize_path = abspath(normpath(f"./base/voxelize.exe"))
     mesh_path = abspath(normpath(mesh_path))
     voxset_path = abspath(normpath(voxset_path))
 
@@ -73,10 +73,10 @@ def return_MST_centrelines(mesh_path, voxset_path,
     centerlines = {}
     
     # save to file.
-    np.savetxt(f"./tests/centrelines/MST_{conduit_name}_{delta}_raw_centreline.txt", coords, fmt= "%.3e")
+    np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_raw_centreline.txt", coords, fmt= "%.3e")
     centerlines["raw"] = coords
 
-    thedir = "./test1/"
+    thedir = "./temp/"
     # polygonal path
     writeDXFPath(f"{thedir}/centerline.dxf", p1)
     print(p1)
@@ -86,7 +86,7 @@ def return_MST_centrelines(mesh_path, voxset_path,
 
     coords = np.array(p2)/1000
     # save to file.
-    np.savetxt(f"./tests/centrelines/MST_{conduit_name}_{DELTA}_centerline-simplified.txt", coords, fmt= "%.3e")
+    np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{DELTA}_centerline-simplified.txt", coords, fmt= "%.3e")
     centerlines["simplified"] = coords
 
 
@@ -97,10 +97,10 @@ def return_MST_centrelines(mesh_path, voxset_path,
     writeBinPath(f"{thedir}/path.bin", p1)
     writeBinPath(f"{thedir}/path-simplified.bin", p2)
 
-    runModule("./centerline/bspliner", [str(len(p1) / 3), f"{thedir}/path.bin", f"{thedir}/bspline.bin"])
-    runModule("./centerline/bspliner", [str(len(p2) / 3), f"{thedir}/path.bin", f"{thedir}/bspline1.bin"])
+    runModule("./base/bspliner", [str(len(p1) / 3), f"{thedir}/path.bin", f"{thedir}/bspline.bin"])
+    runModule("./base/bspliner", [str(len(p2) / 3), f"{thedir}/path.bin", f"{thedir}/bspline1.bin"])
     runModule(
-        "./centerline/bspliner",
+        "./base/bspliner",
         [
             str(len(p2) / 3),
             f"{thedir}/path-simplified.bin",
@@ -128,7 +128,7 @@ def return_MST_centrelines(mesh_path, voxset_path,
 
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"./tests/centrelines/MST_{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.3e")
+        np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.3e")
         centerlines["centerspline_direct"] = coords
 
 
@@ -157,7 +157,7 @@ def return_MST_centrelines(mesh_path, voxset_path,
         
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"./tests/centrelines/MST_{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.3e")
+        np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.3e")
         centerlines["centerspline_direct"] = coords
 
     return centerlines

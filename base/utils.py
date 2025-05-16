@@ -16,6 +16,22 @@ from os import listdir
 from os.path import normpath, join
 
 
+def list_all_descriptors(repository):
+
+    # list the different cave directories at the root directory level
+    caves = [elem for elem in listdir(repository) if "." not in elem]
+
+    # find unique passage filepaths
+    passages_filepaths = []
+    for cave in caves:
+        # list all directory names within data
+        new_passages = [elem for elem in listdir(join(repository, cave)) if "." not in elem]
+        for new_passage in new_passages:
+            passages_filepaths.append(normpath(join(repository, cave, new_passage, "geometric_descriptors", "section_descriptors.txt")))
+    
+    return passages_filepaths
+
+
 def list_all_centrelines(repository):
 
     # list the different cave directories at the root directory level
@@ -121,14 +137,24 @@ def array_to_o3d(pointcloud: np.ndarray):
     return cloud
 
 # at each point in the centreline, use its two neighbours to estimate the passage direction. 
-def return_centreline_parametrisation(centreline):
+def return_centreline_parametrisation(centreline, dt=1):
+    from scipy.interpolate import interp1d  
 
-    vectors = centreline[:-2] - centreline[2:]
+    curvilinear_coords = np.hstack([np.zeros(1), np.cumsum(np.linalg.norm(np.diff(centreline, axis=0), axis =1))])
+    xinterp  = interp1d(curvilinear_coords, centreline[:, 0])
+    yinterp = interp1d(curvilinear_coords, centreline[:, 1])
+    zinterp = interp1d(curvilinear_coords, centreline[:, 2])
+
+    tmax = np.floor(np.max(curvilinear_coords))
+    ti = np.hstack([np.arange(0, tmax, dt), tmax])
+    interpolated_centreline = np.vstack([xinterp(ti), yinterp(ti), zinterp(ti)]).T
+
+    
+    vectors = interpolated_centreline[:-2] - interpolated_centreline[2:]
     norm_vectors = np.linalg.norm(vectors, axis=1)
     normed_vectors = vectors / np.expand_dims(norm_vectors, -1)
-    curvilinear_coords = np.cumsum(np.linalg.norm(vectors, axis =1))[:-1]
-
-    return curvilinear_coords, normed_vectors
+    
+    return interpolated_centreline, ti[1:-1], normed_vectors
 
 ## Mesh intersections 
 
@@ -348,4 +374,3 @@ def return_rings(mesh, adjacent_triangles)-> dict:
 
 
     # return dict(ring1=ring1, P1=P1, nP1=nP1, ring2=ring2,  P2=P2, nP2=nP2)
-

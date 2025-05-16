@@ -101,6 +101,16 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
     # what is T0 ?? An initialised coordinate triplet
     T0 = np.zeros((3, 3))
 
+    
+    
+    PTc = np.linalg.norm(P - theMesh.centroids[intersected_triangles], axis = 1)
+    argminPTc = np.argmin(PTc)
+    start_idx = intersected_triangles[argminPTc]
+
+    if verbose==True:
+        print("now choosing the first triangle whose centroid is closest to the plane central point.")
+        print(start_idx, theMesh.centroids[start_idx], np.linalg.norm(P - theMesh.centroids[start_idx]))
+
     for c, i in enumerate(intersected_triangles):
         # find the distance to plane quantities for the vertex triplet at the ith triangle.
         PT_k = PT_i_k[i]
@@ -157,6 +167,8 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
     if len(M) == 0:
         raise ValueError
     
+    M_old = M.copy()
+    
     # select the cluster closest to point P. 
     point_cloud = o3d.geometry.PointCloud()
     point_cloud.points = o3d.utility.Vector3dVector(M)
@@ -173,46 +185,49 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
 
     if n_cc > 1:
         # select first largest
-        cc0 = np.argmax(cc_sizes)    
-        cc_sizes[cc0] = 0
-        
-        # select second largest
-        cc1 = np.argmax(cc_sizes)    
-        cc_sizes[cc1] = 0
+        c = 0
 
-        # select third largest
+        rings = []
 
-        cc2 = np.argmax(cc_sizes)    
-        # find the two largest openings. 
-        # find the two largest openings. 
+        while c <= n_cc:
+            cc0 = np.argmax(cc_sizes)    
+            cc_sizes[cc0] = 0
 
-        cc0_bool = dbscan_labels == cc0
-        cc1_bool = dbscan_labels == cc1
-        cc2_bool = dbscan_labels == cc2
+            ring_bool = dbscan_labels == cc0
+            ring_dic = {}
+            ring_dic[f"ring{c}_bool"] =  ring_bool
 
-        P_mean_ring0 = np.linalg.norm(P - np.mean(M[cc0_bool], axis = 0))
-        P_mean_ring1 = np.linalg.norm(P - np.mean(M[cc1_bool], axis = 0))
-        P_mean_ring2 = np.linalg.norm(P - np.mean(M[cc2_bool], axis = 0))
+            ring_points = M[ring_bool]
+
+            X = ring_points - np.mean(ring_points, axis=0)
+            CovX = X.T @ X
+            eigenvalues, eigenvectors = np.linalg.eig(CovX)
+
+            ordered_eigenvalues = np.sort(eigenvalues)
+            
+
+            ring_dic[f"P_mean_ring{c}"] = np.linalg.norm(P - np.mean(M[ring_bool], axis = 0))
+            ring_dic[f"ring{c}_extent"] = np.prod(np.sqrt(ordered_eigenvalues)[1:])
+
+            rings.append(ring_dic)
+
+            c+=1
+         
 
         if verbose == True:
-            print(P_mean_ring0, P_mean_ring1, P_mean_ring2)
+            for c, ring in enumerate(rings):
+                print("which rings should we use?", P, ring[f"P_mean_ring{c}"], ring[f"ring{c}_extent"])
 
-        if P_mean_ring0 < P_mean_ring1 and P_mean_ring0 < P_mean_ring2:
-            # use ring 0
-            M = M[cc0_bool].copy()
-            M1M2 =  M1M2[cc0_bool].copy()
-            nOmega = nOmega[cc0_bool].copy()
-            
-        elif P_mean_ring1 < P_mean_ring2:
-        # use ring 1
-            M = M[cc1_bool].copy()
-            M1M2 =  M1M2[cc1_bool].copy()
-            nOmega = nOmega[cc1_bool].copy()
-        else:
-            # use ring 2
-            M = M[cc2_bool].copy()
-            M1M2 =  M1M2[cc2_bool].copy()
-            nOmega = nOmega[cc2_bool].copy()
+            print(np.argmin([ring[f"P_mean_ring{c}"]/ring[f"ring{c}_extent"] for c, ring in enumerate(rings)]))
+
+        thering = np.argmin([ring[f"P_mean_ring{c}"] for c, ring in enumerate(rings)])
+        
+
+        theringbool = rings[thering][f"ring{thering}_bool"]
+        M = M[theringbool].copy()
+        M1M2 =  M1M2[theringbool].copy()
+        nOmega = nOmega[theringbool].copy()
+        
 
     
     pwdist = pairwise_distances(M)
@@ -279,7 +294,7 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
                         print("error found: ", e)
                     pass
 
-    return M[best_path], nOmega_ord, M1M2_ord, W, area, nP
+    return M[best_path], nOmega_ord, M1M2_ord, W, area, nP, M_old
 
 def dumb_area_minimiser(theMesh,  P, nP0, niter=40, eps=1e-1, global_shift = np.zeros(3), verbose = False):
     # define the plane of section by a point and its normal. 

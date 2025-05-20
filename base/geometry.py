@@ -298,7 +298,8 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
         return R
     
 def to2D(points3d, nP):
-    d = nP
+    d = nP * np.sign(nP[2])
+    
     d1 = d.copy()
     # project onto horizontal plane
     d1[2] = 0
@@ -316,6 +317,12 @@ def to2D(points3d, nP):
     return points2d
 
 
+def is_closed(a:np.ndarray, tol= 1e-1):
+    """ 
+    Is a 2d polygon section closed within a given tolerance?  
+    """
+    return np.linalg.norm(a[0]-a[-1]) < tol
+
 def compute_max_pairwise_distance(a: np.ndarray)-> float:
     """ 
     Max || x1 - x2||  given x1 in a, x2 in a and x1 != x2
@@ -329,14 +336,16 @@ def compute_rmax(a: np.ndarray, c:np.ndarray)-> float:
     """
 
     rmax = np.max(np.linalg.norm(c-a, axis = 1))
-    return rmax
+    arg_rmax = np.argmax(np.linalg.norm(c-a, axis = 1))
+    return rmax, arg_rmax
 
 def compute_rmin(a: np.ndarray, c: np.ndarray)-> float:
     """ 
     Min || x - c||  given x in a
     """
     rmin = np.min(np.linalg.norm(c-a, axis = 1))
-    return rmin
+    arg_rmin = np.argmin(np.linalg.norm(c-a, axis = 1))
+    return rmin, arg_rmin
 
 def compute_rave(a: np.ndarray, c: np.ndarray)-> float:
     """ 
@@ -451,12 +460,13 @@ def describe(section: np.ndarray) -> dict:
     area = compute_ngon_area(section)
     perimeter = compute_ngon_perimeter(section)
     max_chord_length = compute_max_pairwise_distance(section)
-    rmax = compute_rmax(section, cog)
-    rmin = compute_rmin(section, cog)
+    rmax, _ = compute_rmax(section, cog)
+    rmin, _ = compute_rmin(section, cog)
     r_average = compute_rave(section, cog)
     solidity = compute_polygon_solidity(section)
     hydraulic_diameter = compute_ngon_dh(area, perimeter)
     circular_variance = compute_circular_variance(section, cog, area)
+    closed = is_closed(section)
 
     _, ellipse_area, _, ellipse_aspect_ratio, ellipse_axes, ellipse_eigenvalues, ellipse_rotation = fit_ellipse(section)
 
@@ -484,7 +494,8 @@ def describe(section: np.ndarray) -> dict:
     elongation = 4 / np.pi *  (area / r_average**2),
     isoperimetric_deficiency = 4* np.pi * area / perimeter**2,
     morton_spreading_index = 4 / np.pi * (area / max_chord_length**2),
-    circular_variance = circular_variance)
+    circular_variance = circular_variance,
+    is_closed = closed)
 
     return description
 

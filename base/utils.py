@@ -1,12 +1,13 @@
 import numpy as np
-import cloudComPy as cc
 import open3d as o3d
 import time
 import itertools
 from sklearn.neighbors import NearestNeighbors
 import laspy
 import networkx as nx
-import mistree_pp as mist
+
+
+
 from sklearn.neighbors import NearestNeighbors
 from itertools import combinations
 from tqdm import tqdm
@@ -65,6 +66,8 @@ def list_all_plymeshes(repository):
 
 # introspection and conversion to stl format.
 def load_ply(filepath):
+    import cloudComPy as cc
+
     meshply = cc.loadMesh(filepath)
 
     cloud = meshply.getAssociatedCloud()
@@ -98,6 +101,7 @@ def open_las(filepath: str) -> np.ndarray:
 def spatially_downsample(pointcloud: np.ndarray, min_distance: float)-> np.ndarray :
     """Downsamples a numpy.ndarray object (N x 3 matrix) of spatial coordinates using the dedicated CloudCompare
     algorithm. Returns a downsampled numpy.ndarray  (N x 3 matrix)"""
+    import cloudComPy as cc
 
     cloud = cc.ccPointCloud()
     cloud.coordsFromNPArray_copy(pointcloud)
@@ -113,6 +117,7 @@ def return_largest_component(pointcloud: np.ndarray,
                              min_component_size: int)-> np.ndarray :
     """returns the largest connected component of a numpy.ndarray object (N x 3 matrix) of spatial coordinates using the dedicated CloudCompare
     algorithm. Returns a numpy.ndarray  (N x 3 matrix)"""
+    import cloudComPy as cc
 
     cloud = cc.ccPointCloud()
     cloud.coordsFromNPArray_copy(pointcloud)
@@ -184,6 +189,11 @@ def return_ring(mesh, adjacent_triangles, P, nP, d, D):
     and its normal, and two threshold distances: out-of-plane distance, and within a radius of
     the initial point. 
     """
+
+    try:
+        import mistree as mist
+    except ModuleNotFoundError:
+        import mistree_pp as mist
 
     # first find all triangles having two neighbours only (third column equal to an index of -999)
     edge_triangles = list(np.argwhere(adjacent_triangles[:,2] == -999).flatten())

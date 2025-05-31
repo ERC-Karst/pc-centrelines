@@ -1,0 +1,36 @@
+{
+  "name": "robust-compare",
+  "version": "1.0.0",
+  "description": "Compares a pair of non-overlapping increasing sequences",
+  "main": "cmp.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "robust-subtract": "^1.0.0"
+  },
+  "devDependencies": {
+    "tape": "^2.12.3"
+  },
+  "scripts": {
+    "test": "tape test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/mikolalysenko/robust-compare.git"
+  },
+  "keywords": [
+    "robust",
+    "exact",
+    "arithmetic",
+    "sequence",
+    "compare",
+    "float"
+  ],
+  "author": "Mikola Lysenko",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mikolalysenko/robust-compare/issues"
+  },
+  "homepage": "https://github.com/mikolalysenko/robust-compare"
+}

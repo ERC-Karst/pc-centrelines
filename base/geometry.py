@@ -209,7 +209,7 @@ def fit_ellipse(points2d, verbose = False):
     D_sorted = D[np.argsort(D)[::-1]]
     aspect_ratio = np.sqrt(D_sorted[0] / D_sorted[1])
 
-    ellipse_rotation = np.rad2deg(np.arccos(S[np.argsort(D)[::-1]][0, 1]))
+    ellipse_rotation = np.rad2deg(np.arcsin(S[np.argsort(D)[::-1]][0, 1]))
 
     if verbose == True:
         print(G, area)
@@ -226,7 +226,7 @@ def fit_ellipse(points2d, verbose = False):
     ellipse_area = compute_ngon_area(determined_ellipse)
     ellipse_perimeter = compute_ngon_perimeter(determined_ellipse)
     
-    return determined_ellipse, ellipse_area, ellipse_perimeter, aspect_ratio, S, D_sorted, ellipse_rotation
+    return determined_ellipse, ellipse_area, ellipse_perimeter, aspect_ratio, S, np.sqrt(D_sorted)*k, ellipse_rotation
 
 def householder_transform(u: np.ndarray) -> np.ndarray:
     """Return the Householder transformation of vector u / it is a reflection about a hyperplan containin the origin
@@ -486,7 +486,6 @@ def describe(section: np.ndarray) -> dict:
     rmin = rmin,
     r_average = r_average,
     circularity = rmin / rmax,
-    circularity2 = perimeter **2 / area,
     gravelius_compactness = perimeter / (2* np.sqrt(np.pi*area)),
     circularity3 = (rmax - rmin) / rmax,
     deviation_from_inscribed_disk = np.pi * rmin**2 / area,
@@ -570,7 +569,7 @@ DESCRIPTOR_MAP = {"area": {"name": "area",
                             "equation": "$\frac{4}{\pi} \frac{A}{r_{ave}^2}$", 
                             "abbr": "$E$", 
                             "bounds": [0, 4]},
-                "isoperimetric_deficiency": {"name": "isoperimetric deficiency", 
+                "isoperimetric_deficiency": {"name": "isoperimetric quotient", 
                             "unit": "", 
                             "equation": "$\frac{4 \pi A}{p^2}$", 
                             "abbr": "$d_{iso}$",
@@ -590,7 +589,7 @@ DESCRIPTOR_MAP = {"area": {"name": "area",
                             "equation": " ", 
                             "abbr": "$R_e$",
                             "bounds": [1, None]},
-                "ellipse_rotation": {"name": "rotation of ellipse axes from horizontal", 
+                "ellipse_rotation": {"name": "ellipse inclination", 
                             "unit": "radians", 
                             "equation": " ", 
                             "abbr": "$\\theta_{e}$",

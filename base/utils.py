@@ -5,8 +5,9 @@ import itertools
 from sklearn.neighbors import NearestNeighbors
 import laspy
 import networkx as nx
-
-
+from scipy.stats import gaussian_kde
+from scipy.optimize import curve_fit
+from matplotlib.cm import tab20b
 
 from sklearn.neighbors import NearestNeighbors
 from itertools import combinations
@@ -15,6 +16,8 @@ from stl import mesh
 
 from os import listdir
 from os.path import normpath, join
+
+import base.geometry as geom
 
 
 def list_all_descriptors(repository):
@@ -384,3 +387,334 @@ def return_rings(mesh, adjacent_triangles)-> dict:
 
 
     # return dict(ring1=ring1, P1=P1, nP1=nP1, ring2=ring2,  P2=P2, nP2=nP2)
+
+def equivalent_dh(dhi, li):
+    # harmonic mean along the section 
+    return np.sum(li)**(1/4) * np.sum(li *dhi**(-4))**(-1/4)
+
+## PLOTTERS 
+
+def plotDH(sections,  idx, ax):
+    dh = 4* geom.compute_ngon_area(sections[idx]) / geom.compute_ngon_perimeter(sections[idx])
+    xi = np.linspace(0, 2*np.pi, 100)
+    print(f"plotting the dh for section {idx} at {dh:.2f}m")
+    # upper semi-circle
+    ax.fill(dh/2*np.cos(xi), dh/2*np.sin(xi), alpha = 0.66, color = "grey", edgecolor=None)
+    return ax
+
+def plotCHull(sections,  idx, ax):
+    chull = geom.compute_convex_hull(sections[idx])
+    ax.fill(*sections[idx][:,[0, 1]].T, zorder = -9, color = "white")
+
+    ax.fill(*chull[:,[0, 1]].T, zorder = -10, color = "sienna", alpha = 0.5)
+    return ax
+
+
+def plotR(sections, idx, ax, method):
+    cog = geom.centre_of_gravity(sections[idx])
+
+    ther, thearg = method(sections[idx], cog)
+
+    ax.plot(*np.vstack([cog,sections[idx][thearg]]).T, color = "k", lw = 1)
+    ax.scatter(*cog, marker="o", s=20, color="white", edgecolor="k")
+
+def plotDescriptor(sections, descriptors, header, col, ax, 
+                   ax_hist, 
+                   ax_inset1, 
+                   ax_inset2, 
+                   inset_size = 10, 
+                   last = False,
+                   withmap = False,
+                   with_autocovariance=False,
+                   attr_n = 0, 
+                   verbose = False):
+    
+    # coordinates for plotting in the insets
+    descriptor = descriptors[:, col]
+    xi = descriptors[:, -1]
+    above_min_area = descriptors[:, 0] > 0.5
+    is_closed = descriptors[:, -2]
+    within_99 = np.logical_and(descriptor > np.nanquantile(descriptor, 0.005), descriptor < np.nanquantile(descriptor, 0.995))
+    closed_within_99 = np.logical_and(is_closed.astype(bool), within_99)
+    is_ok = np.logical_and(closed_within_99, above_min_area)
+
+
+    descriptor_ok = descriptor[is_ok]
+    xi_ok = xi[is_ok]
+
+    sections_ok = np.array(sections, dtype=object)[is_ok]
+    # indices to integers. 
+
+
+    # indices of max and min descriptor value 
+    argmax_descriptor = np.nanargmax(descriptor_ok)
+    argmin_descriptor = np.nanargmin(descriptor_ok)
+
+
+
+    _min = min(descriptor_ok)
+    _max = max(descriptor_ok)
+    _range = _max - _min
+
+    if withmap==False:
+    
+        # Plotting along the curviline
+        ax.plot(xi_ok, descriptor_ok, 
+                "-o", 
+                markersize = 3, 
+                lw=0.75,
+                color = tab20b(4*attr_n+1))
+
+        ax.scatter(xi_ok[argmax_descriptor], descriptor_ok[argmax_descriptor], 
+                color = "white",  
+                edgecolor = tab20b(4*attr_n), 
+                zorder = 100, 
+                s = 20, 
+                marker = "D")
+        
+        ax.scatter(xi_ok[argmin_descriptor], descriptor_ok[argmin_descriptor], 
+                color = "white", 
+                edgecolor = tab20b(4*attr_n+3), 
+                zorder = 100, 
+                s = 20, 
+                marker = "D")
+        
+        ax.set_ylim(_min -0.1*_range, _max +0.1*_range)
+    
+
+    # Plotting the histogram
+    nbins = int(1+ np.log2(len(descriptor_ok))) # sturges rule.
+    ax_hist.hist(descriptor_ok, density = True, 
+                 orientation = "horizontal", 
+                 bins = nbins, 
+                 color =tab20b(4*attr_n+3))
+
+    # Gaussian KDE of the dataset, plotted on top of histogram. 
+    yi = np.linspace(_min - 0.1*_range, _max + 0.1*_range, 100)
+    kde = gaussian_kde(descriptor_ok).evaluate(yi)
+    ax_hist.plot(kde, yi, lw = 3.5,c  = "white", zorder = 2)
+    ax_hist.plot(kde, yi, lw = 1.5,c  = tab20b((4*attr_n)), zorder = 3)
+
+    if with_autocovariance == False:
+        # Plotting the insets
+        ax_inset1.plot(*sections_ok[argmax_descriptor][:,[0, 1]].T,  color = tab20b(4*attr_n))
+
+        ax_inset1.set_title(f"section {argmax_descriptor}")
+
+        ax_inset2.plot(*sections_ok[argmin_descriptor][:,[0, 1]].T, color = tab20b((4*attr_n+3)))
+        ax_inset2.set_title(f"section {argmin_descriptor}")
+
+
+        # if hydraulic diameter. 
+        if (header[col] == "hydraulic_diameter") and withmap == False: 
+            plotDH(sections_ok, argmax_descriptor, ax_inset1)
+            plotDH(sections_ok, argmin_descriptor, ax_inset2)
+
+            li = np.diff(xi_ok)
+
+            equiv_dh = equivalent_dh(descriptor_ok[:-1], li)
+            ax.axhline(equiv_dh, ls="--", label = "equivalent hydraulic diameter", color = "k")
+
+            ax.legend()
+            
+        elif header[col] == "solidity":
+            plotCHull(sections_ok, argmax_descriptor, ax_inset1)
+            plotCHull(sections_ok, argmin_descriptor, ax_inset2)
+
+        elif header[col] == "rmin":
+            plotR(sections_ok, argmax_descriptor, ax_inset1, geom.compute_rmin)
+            plotR(sections_ok, argmin_descriptor, ax_inset2, geom.compute_rmin)
+        
+        elif header[col] == "rmax":
+            plotR(sections_ok, argmax_descriptor, ax_inset1, geom.compute_rmax)
+            plotR(sections_ok, argmin_descriptor, ax_inset2, geom.compute_rmax)
+    
+        # make cosmetic ajustments to insets 
+        if with_autocovariance != True:
+            for ax_inset in (ax_inset1, ax_inset2):
+                ax_inset.set_aspect("equal")
+                ax_inset.tick_params(top=True, right=True, left = False, bottom= False)
+                ax_inset.xaxis.tick_top()
+                ax_inset.yaxis.tick_right()
+                ax_inset.yaxis.set_label_position("right")
+                ax_inset.set_ylabel("z [m]")
+                ax_inset.set_xlim(-inset_size, inset_size)
+                ax_inset.set_ylim(-inset_size, inset_size)
+
+
+                tick_pos = np.round(inset_size*2 /3)
+                ax_inset.set_xticks([-tick_pos,0,tick_pos])
+                ax_inset.set_yticks([-tick_pos,0,tick_pos])
+    
+    elif with_autocovariance== True:
+        dt = xi[1] - xi[0]
+        maxlag = int(2*len(descriptor)*dt / 3)
+        print("max lag and dt: ", maxlag, dt)
+        flags = np.logical_not(np.logical_and(within_99, above_min_area))
+
+        #plot_autocorrelation_coefficients(ax_inset1, descriptor,maxlag, dt,colormap=tab20b, attrn= attr_n)
+        
+        plot_autocovariance(ax_inset1, ax_inset2, descriptor, flags, maxlag, dt, colormap=tab20b, attrn=attr_n, verbose=verbose)
+
+
+    if withmap == False:
+        ax.grid(lw = 0.5, ls="--")
+
+        for spine in ["top","right"]:
+            ax.spines[spine].set_visible(False)
+            ax_hist.spines[spine].set_visible(False)
+    else:
+        for spine in ["top","right"]:
+            ax_hist.spines[spine].set_visible(False)
+
+
+    # annotate with some interesting trivia
+    if last == True:
+        ax.set_xlabel("Coordinate along centreline [m]")
+
+def autocovariance(x, maxlag):
+    autocov = np.zeros(maxlag)
+    for lag in range(1, maxlag+1):
+        covxlag = (x[lag:] - np.nanmean(x[lag:])) @ (x[:-lag] -np.nanmean(x[:-lag]))  / (len(x)-lag-1)
+        autocov[lag-1] = covxlag
+    return autocov
+
+def autocorrelation_coefficients(x, maxlag):
+    acf = np.zeros(maxlag)
+    for lag in range(1, maxlag+1):
+        covxlag = (x[lag:] - np.mean(x[lag:])) @ (x[:-lag] -np.mean(x[:-lag]))  / (len(x)-lag-1)
+        lincorr = covxlag / (np.std(x[:-lag], ddof=1)*np.std(x[lag:], ddof=1))
+        acf[lag-1] = lincorr
+    return acf
+
+def confidencebands(acf):
+    n = len(acf)
+    N = 2*n
+    cb = np.zeros(n)
+    # confidence bands
+    cb[0] =  1 / np.sqrt(N)
+
+    for lag in np.arange(2, n+1):
+        SE_lag = np.sqrt((1+ 2*acf[:lag-1]@acf[:lag-1])/N)
+        cb[lag-1] = SE_lag
+
+    return cb
+
+def analyse_autocovariance(signal, flags, maxlag, dt): 
+    # assume the signal has nans. is evenly distributed. 
+    x = np.arange(0,len(signal))*dt
+
+    # fill in the signal with nans wherever the signal is to be ignored. 
+    v_nan = signal.copy()
+    x_nan = x.copy()
+    x_nan[flags] = np.nan
+    v_nan[flags] = np.nan
+
+    # compute the autocovariance function at all lags from 0 to maxlag.
+    n = len(v_nan)
+    autocov_nan = np.zeros(maxlag)
+    signal_centered = v_nan - np.nanmean(v_nan)
+
+    for lag in range(maxlag):
+        autocov_nan[lag] = np.nansum(signal_centered[:n-lag]*signal_centered[lag:]) / n
+
+    # normalised autocovariance function 
+    acf_nan = autocov_nan / autocov_nan[0]
+
+    # find the integrated autocorrelation time using the method by Sokal (1997)
+    j_max_v = np.arange(maxlag)
+    tau_int_v  = np.zeros(maxlag)
+
+    # compute the tau_int for many values of j_max (M, length of rectangular window)
+    for j_max in j_max_v:
+        tau_int_v[j_max] = 0.5 + np.sum(acf_nan[1: j_max+1])
+
+    # find the largest integer j_max such that: j_max < C * tau_int_v[j_max]
+    C = 5.0
+    j_max = 0
+    
+    while j_max < C * tau_int_v[j_max]:
+        if j_max == maxlag -1:
+            break
+        else:
+            j_max+=1
+        
+    return x_nan, v_nan, autocov_nan, acf_nan, tau_int_v, j_max
+
+
+def plot_autocovariance(ax1, ax2, signal, flags, maxlag, dt, colormap, attrn= 0, verbose= False):
+    _, _, _, acf_nan, tau_int_v, j_max = analyse_autocovariance(signal, flags, maxlag, dt)
+
+    ax1.semilogx(np.arange(1, maxlag)*dt, acf_nan[1:], 
+                 label = f"$\hat{{\hat{{\\tau}}}}_{{int}}= {tau_int_v[j_max]*dt:.1f}$ m", 
+                 color = colormap(4*attrn))
+
+    ax1.set_xlabel("lag $\mid t\Delta t \mid$ [m]")
+    ax1.set_ylabel("$\hat{\hat{\\rho}}$(t)")
+    ax1.legend(fontsize=8, loc="lower left")
+    ax1.axvline(tau_int_v[j_max]*dt, zorder = -10, ls = "--", color = "firebrick")
+
+    C = 5
+    ax2.semilogx(np.arange(1, maxlag)*dt, C*tau_int_v[1:])
+    ax2.semilogx(np.arange(1, maxlag)*dt, range(1, maxlag), color = "k", ls ="--")
+    ax2.set_ylim(0, 1.1*np.max(C*tau_int_v[1:]))
+    ax2.set_ylabel("$c \\times \hat{\hat{\\tau_{{int}}}}$(M)")
+    ax2.set_xlabel("window size M")
+
+
+# def plot_autocovariance(ax, x, maxlag, dt, colormap, attrn= 0, verbose = False):
+#     # fitting the exponential. 
+
+#     def exponential_model(x, a, b):
+#         return a * np.exp(-x/b)
+    
+#     lags = np.arange(1, maxlag+1)*dt
+
+#     # deal with nans by filling. 
+#     for c, elem in enumerate(x):
+#         if np.isnan(elem):
+#             x[c] = x[c-1]
+#     # cast to correct floating point precision.
+#     x = x.astype(np.float64)
+
+#     autocov = autocovariance(x, maxlag)
+
+#     if verbose == True:
+#         print(x)
+#         print(autocov)
+
+#     popt, pcov = curve_fit(exponential_model, lags, autocov, p0=[15, 10])
+
+    
+#     ax.plot(np.arange(1, maxlag+1)*dt, autocov, marker="o", markersize = 4, color = colormap(attrn*4))
+#     ax.plot(np.arange(1, maxlag+1)*dt, exponential_model(np.arange(1, maxlag+1)*dt, *popt), color = "k", ls = "--", label ="exponential fit")
+#     ax.set_xlabel("lag distance $j$ [m]")
+#     ax.set_ylabel("Autocovariance function $\hat{K}^{XX}_j$")
+#     ax.set_xscale("log")
+#     ax.axvline(popt[1]*dt, color ="firebrick")
+#     #ax.text(1, 0, f"exp. autocorrelation distance:\n {popt[1]:.2f} sampling intervals", fontsize = 8)
+
+#     return ax, popt[1]
+
+
+def plot_autocorrelation_coefficients(ax, x, maxlag, dt, colormap, attrn= 0):
+    from scipy.stats import norm
+    acf = autocorrelation_coefficients(x, maxlag)
+    cb = confidencebands(acf)
+
+    ax.plot(np.arange(1, maxlag+1)*dt, acf,"-o", color = colormap(attrn*4), markersize = 4)
+
+    ax.set_xlabel("lag distance $j$ [m]")
+
+    # confidence bands
+    ax.plot(np.arange(1, maxlag+1)*dt,norm.ppf(0.025)*cb, color="k", ls = "--", lw = 0.75)
+    ax.plot(np.arange(1, maxlag+1)*dt,norm.ppf(0.975)*cb, color="k", ls = "--", lw = 0.75)
+
+    ax.scatter(np.arange(1, maxlag+1)*dt,acf+norm.ppf(0.025)*cb, color=colormap(4*attrn+2), s= 2)
+    ax.scatter(np.arange(1, maxlag+1)*dt,acf+norm.ppf(0.975)*cb, color=colormap(4*attrn+2), s= 2)
+
+    ax.set_ylabel("Autocorrelation function $\hat{A}^{XX}_j$")
+
+    ax.axhline(0, ls = "-", color = "k")
+
+    return ax

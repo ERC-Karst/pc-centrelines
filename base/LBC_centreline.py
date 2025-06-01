@@ -1,5 +1,9 @@
 import numpy as np
-import mistree_pp as mist
+try:
+    import mistree as mist
+except ModuleNotFoundError:
+    import mistree_pp as mist
+    
 import networkx as nx
 from itertools import permutations
 

@@ -489,7 +489,7 @@ def describe(section: np.ndarray) -> dict:
     gravelius_compactness = perimeter / (2* np.sqrt(np.pi*area)),
     circularity3 = (rmax - rmin) / rmax,
     deviation_from_inscribed_disk = np.pi * rmin**2 / area,
-    deviation_from_circumscribed_disk = np.pi * rmax**2 / area,
+    deviation_from_circumscribed_disk = np.pi * max_chord_length**2 / (4*area),
     elongation = 4 / np.pi *  (area / r_average**2),
     isoperimetric_deficiency = 4* np.pi * area / perimeter**2,
     morton_spreading_index = 4 / np.pi * (area / max_chord_length**2),

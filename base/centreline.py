@@ -32,9 +32,7 @@ def runModule(module: str, args: list[str]) -> None:
 
 # returns position in millimeters
 def parsePosition(s: str) -> np.ndarray:
-    print(s, type(s))
     f = s.split(",")
-    print(f)
     if len(f) != 3:
         sys.stderr.write("Source and target must have 3 coordinates.\n")
         sys.exit(9)
@@ -98,7 +96,7 @@ class Centerliner:
         length = norm(p - q)
         self.G.add_edge(pp, qq, clearance=clearance, length=length)
 
-    def findNearestNode(self, p: np.ndarray):
+    def findNearestNode(self, p: np.ndarray, verbose = False):
         nearest = None
         dist = 1e38
         for n in self.G.nodes:
@@ -107,28 +105,50 @@ class Centerliner:
             if d < dist:
                 dist = d
                 nearest = n
+        
+        if verbose == True:
+            print(f"distance: {dist:.1f} mm\n", "nearest: ", nearest)
         return nearest
 
     def computeCenterline(self, s, t) -> list[np.ndarray]:
         t0 = time.time()
-        T = nx.maximum_spanning_tree(self.G, weight="clearance")
+        self.T = nx.maximum_spanning_tree(self.G, weight="clearance")
         t1 = time.time()
         sys.stderr.write(
             f"Computed maximum spanning tree for clearance in {t1 - t0:,.1f} sec.\n"
         )
-        path = nx.shortest_path(T, source=s, target=t, weight="length")
+        path = nx.shortest_path(self.T, source=s, target=t, weight="length")
         t2 = time.time()
         sys.stderr.write(
             f"Computed path in maximum spanning tree in {t2 - t1:,.1f} sec.\n"
         )
         return path
+    
+    def writeMSTEdges(self, fname: str):
+
+        with open(fname, "w") as out:
+            for p, q, _ in self.T.edges.data("length"):
+                p = 0.001 * np.array(p)
+                q = 0.001 * np.array(q)  # scale to meters
+
+                out.write(f"{p[0]} {p[1]} {p[2]} {q[0]} {q[1]} {q[2]}\n")
+    
 
     # writes a point cloud: midpoint of each edge, together with clearance as scalar field
-    def writeEdges(self, fname: str):
+    def writeEdgesMidpoints(self, fname: str):
         with open(fname, "w") as out:
             for p, q, clearance in self.G.edges.data("clearance"):
                 x = 0.0005 * (np.array(p) + np.array(q))  # scale to meters
                 out.write(f"{x[0]} {x[1]} {x[2]} {clearance}\n")
+    
+    # writes a point cloud: midpoint of each edge, together with clearance as scalar field
+    def writeEdges(self, fname: str):
+        with open(fname, "w") as out:
+            for p, q, clearance in self.G.edges.data("clearance"):
+                p = 0.001 * np.array(p)
+                q = 0.001 * np.array(q)  # scale to meters
+
+                out.write(f"{p[0]} {p[1]} {p[2]} {q[0]} {q[1]} {q[2]} {clearance}\n")
 
 
 class Unzigzag:
@@ -173,6 +193,22 @@ class Unzigzag:
         t1 = time.time()
         print(f"Computed shortest path in {t1 - t0:,.1f} sec.")
         return p
+    
+    # writes a point cloud: midpoint of each edge, together with clearance as scalar field
+    def writeEdgesMidpoints(self, fname: str):
+        with open(fname, "w") as out:
+            for p, q, clearance in self.G.edges.data("clearance"):
+                x = 0.0005 * (np.array(p) + np.array(q))  # scale to meters
+                out.write(f"{x[0]} {x[1]} {x[2]} {clearance}\n")
+    
+    # writes a set of edges
+    def writeEdges(self, fname: str):
+        with open(fname, "w") as out:
+            for p, q, _ in self.G.edges.data("clearance"):
+                p = 0.001 * np.array(p)
+                q = 0.001 * np.array(q)  # scale to meters
+                
+                out.write(f"{p[0]} {p[1]} {p[2]} {q[0]} {q[1]} {q[2]}\n")
 
 
 def writePoints(fname: str, points: list[np.ndarray]):
@@ -244,15 +280,24 @@ def main():
         help="directory for writing all output files",
         required=True,
     )
+
+  
     parser.add_argument("--delta", help="voxel size in mm", type=int, required=True)
     parser.add_argument("--source", help="source position", type=str, required=True)
     parser.add_argument("--target", help="target position", type=str, required=True)
+    parser.add_argument("--to-dxf", help="output dxf files", type=str, required=False, default = "False")
 
     args = parser.parse_args()
 
     delta = args.delta
     source = parsePosition(args.source)
     target = parsePosition(args.target)
+    to_dxf = parsePosition(args.to_dxf)
+
+    if to_dxf == "True":
+        to_dxf = True
+    else:
+        to_dxf = False
 
     dir = args.output
     if dir.endswith("/"):
@@ -275,8 +320,8 @@ def main():
     source1 = c.findNearestNode(source)
     target1 = c.findNearestNode(target)
     p = c.computeCenterline(source1, target1)
-
-    # writeDXFPath(f"{dir}/rawpath.dxf", p)
+    if to_dxf:
+        writeDXFPath(f"{dir}/rawpath.dxf", p)
 
     u = Unzigzag(p, c.G.nodes, c.delta)
     u.addEdges()
@@ -284,11 +329,13 @@ def main():
 
     # polygonal path
     p1 = [source] + [np.array(x) for x in p] + [target]
-    writeDXFPath(f"{dir}/centerline.dxf", p1)
+    if to_dxf:
+        writeDXFPath(f"{dir}/centerline.dxf", p1)
 
     # simplified polygonal path
     p2 = simplify.douglasPeucker(delta, p1)
-    writeDXFPath(f"{dir}/centerline-simplified.dxf", p2)
+    if to_dxf:
+        writeDXFPath(f"{dir}/centerline-simplified.dxf", p2)
 
     sys.stderr.write(f"Polyline has {len(p1)} vertices\n")
     sys.stderr.write(f"Simplified polyline has {len(p2)} vertices\n")
@@ -314,7 +361,8 @@ def main():
 
     ps = [bezier[0] for bezier in s2]
     ps.append(s2[-1][-1])
-    writeDXFPath(f"{dir}/centerspline-fit.dxf", ps, ezdxf.colors.RED)
+    if to_dxf:
+        writeDXFPath(f"{dir}/centerspline-fit.dxf", ps, ezdxf.colors.RED)
 
     # create B-spline directly from vertices of simplified path
     s3 = spline.bspline(p2)
@@ -322,7 +370,8 @@ def main():
 
     ps = [bezier[0] for bezier in s4]
     ps.append(s4[-1][-1])
-    writeDXFPath(f"{dir}/centerspline-direct.dxf", ps, ezdxf.colors.GREEN)
+    if to_dxf:
+        writeDXFPath(f"{dir}/centerspline-direct.dxf", ps, ezdxf.colors.GREEN)
 
     cps = readBinPath(f"{dir}/bspline-simplified.bin")
     s5 = spline.bspline(cps)
@@ -330,7 +379,8 @@ def main():
 
     ps = [bezier[0] for bezier in s6]
     ps.append(s6[-1][-1])
-    writeDXFPath(f"{dir}/centerspline-fit-simplified.dxf", ps, ezdxf.colors.YELLOW)
+    if to_dxf:
+        writeDXFPath(f"{dir}/centerspline-fit-simplified.dxf", ps, ezdxf.colors.YELLOW)
 
     cps = readBinPath(f"{dir}/bspline1.bin")
     s7 = spline.bspline(cps)
@@ -338,7 +388,8 @@ def main():
 
     ps = [bezier[0] for bezier in s8]
     ps.append(s8[-1][-1])
-    writeDXFPath(f"{dir}/centerspline-fit1.dxf", ps, ezdxf.colors.WHITE)
+    if to_dxf:
+        writeDXFPath(f"{dir}/centerspline-fit1.dxf", ps, ezdxf.colors.WHITE)
 
 
 if __name__ == "__main__":

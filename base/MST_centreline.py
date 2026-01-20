@@ -13,60 +13,58 @@ __all__ = ['return_MST_centrelines']
 DELTA = 200
 
 
-def return_MST_centrelines(mesh_path, voxset_path,
-                          delta: float = DELTA) -> dict:
+def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
+                          delta: float = DELTA, 
+                          verbose = False,
+                          to_dxf = False, datatype ="real") -> dict:
     
     
-    conduit_name = split(mesh_path)[-1].strip(".stl")
+    conduit_name = split(mesh_path)[-1][:-4]
 
     voxelize_path = abspath(normpath(f"./base/voxelize.exe"))
     mesh_path = abspath(normpath(mesh_path))
     voxset_path = abspath(normpath(voxset_path))
 
     # run the voxelizer module. 
-    check_output(f"{voxelize_path} {delta} {mesh_path} {voxset_path}", shell=True)
+    check_output(f'"{voxelize_path}" {delta} "{mesh_path}" "{voxset_path}"', shell=True)
 
     # instantiate a Centerliner class using the output voxel set and delta.
-    print("delta: ", delta)
     c = Centerliner(voxset_path, delta)
 
     c.addEdges()
 
     # to look at the grid and clearance
-    # c.writeEdges(f"{thedir}/edges.xyz")
-    keep = True
-    
-    meshdata = mesh.Mesh.from_file(mesh_path)
+    c.writeEdgesMidpoints(f"temp//{datatype}//{conduit_name}_edges_midpoints.xyz")
+    # to look at the grid and clearance
+    c.writeEdges(f"temp//{datatype}//{conduit_name}_edges.xyz")
 
-    adj_tr_path = mesh_path.strip(".stl") + "_adjacent_triangles.txt"
+    source1 = c.findNearestNode(P1*1000, verbose = verbose)
+    target1 = c.findNearestNode(P2*1000, verbose = verbose)
 
-    if exists(adj_tr_path) and keep:
-        adjacent_triangles = np.loadtxt(adj_tr_path).astype(int)
-    else:
-        adjacent_triangles = find_neighbours_with_knn(meshdata)
-        np.savetxt(adj_tr_path,adjacent_triangles, fmt="%.1d")
-
-        
-    rings = return_rings(meshdata, adjacent_triangles)
-
-    print("inlet coordinates: ", rings["P1"]*1000)
-    print("outlet coordinates: ", rings["P2"]*1000)
-
-    source1 = c.findNearestNode(rings["P1"]*1000)
-    target1 = c.findNearestNode(rings["P2"]*1000)
 
     p = c.computeCenterline(source1, target1)
 
+    # for demo purposes, write the edges of the maximum spanning tree used. 
+    c.writeMSTEdges(f"temp//{datatype}//{conduit_name}_MST_edges.xyz")
+
+    jagged_centreline = [np.array(x) for x in p]
+    coords = np.array(jagged_centreline) / 1000
+    # save to file.
+    np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_jagged_centreline.txt", coords, fmt= "%.3e")
+
     u = Unzigzag(p, c.G.nodes, c.delta)
     u.addEdges()
+    # to look at the grid and clearance
+    u.writeEdges(f"temp//{datatype}//{conduit_name}_unzigzag_edges.xyz")    
+
     p = u.shortestPath(source1, target1)
 
     p1 =[np.array(x) for x in p]
 
-    if not np.allclose(rings["P1"]*1000 - p1[0], 0, atol=delta/2):
-        p1.insert(0, np.round(rings["P1"]*1000, 1))
-    if not np.allclose(rings["P2"]*1000 - p1[-1], 0, atol=delta/2):
-        p1+=[np.round(rings["P2"]*1000, 1)]
+    if not np.allclose(P1*1000 - p1[0], 0, atol=delta/2):
+        p1.insert(0, np.round(P1*1000, 1))
+    if not np.allclose(P2*1000 - p1[-1], 0, atol=delta/2):
+        p1+=[np.round(P2*1000, 1)]
 
     coords = np.array(p1)/1000
 
@@ -76,13 +74,14 @@ def return_MST_centrelines(mesh_path, voxset_path,
     np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_raw_centreline.txt", coords, fmt= "%.3e")
     centerlines["raw"] = coords
 
-    thedir = "./temp/"
+    thedir = "./temp/centrelines"
     # polygonal path
-    writeDXFPath(f"{thedir}/centerline.dxf", p1)
-    print(p1)
+    if to_dxf:
+        writeDXFPath(f"{thedir}/centerline.dxf", p1)
     # simplified polygonal path
     p2 = simplify.douglasPeucker(DELTA, p1)
-    writeDXFPath(f"{thedir}/centerline-simplified.dxf", p2)
+    if to_dxf:
+         writeDXFPath(f"{thedir}/centerline-simplified.dxf", p2)
 
     coords = np.array(p2)/1000
     # save to file.
@@ -108,13 +107,17 @@ def return_MST_centrelines(mesh_path, voxset_path,
         ],
     )
 
-    cps = readBinPath(f"{thedir}/bspline.bin")
-    s1 = spline.bspline(cps)
-    s2 = spline.subdivideBeziers(s1, 100)
+    # there is no need to simplify a line if it only has 3 control points. 
 
-    ps = [bezier[0] for bezier in s2]
-    ps.append(s2[-1][-1])
-    writeDXFPath(f"{thedir}/centerspline-fit.dxf", ps, ezdxf.colors.RED)
+    if len(p1) > 3:
+        cps = readBinPath(f"{thedir}/bspline.bin")
+        s1 = spline.bspline(cps)
+        s2 = spline.subdivideBeziers(s1, 100)
+
+        ps = [bezier[0] for bezier in s2]
+        ps.append(s2[-1][-1])
+        if to_dxf:
+            writeDXFPath(f"{thedir}/centerspline-fit.dxf", ps, ezdxf.colors.RED)
 
     if len(p2) > 2:
 
@@ -124,7 +127,8 @@ def return_MST_centrelines(mesh_path, voxset_path,
 
         ps = [bezier[0] for bezier in s4]
         ps.append(s4[-1][-1])
-        writeDXFPath(f"{thedir}/centerspline-direct.dxf", ps, ezdxf.colors.GREEN)
+        if to_dxf:
+            writeDXFPath(f"{thedir}/centerspline-direct.dxf", ps, ezdxf.colors.GREEN)
 
         coords = np.array(ps)/1000
         # save to file.
@@ -138,7 +142,14 @@ def return_MST_centrelines(mesh_path, voxset_path,
 
         ps = [bezier[0] for bezier in s6]
         ps.append(s6[-1][-1])
-        writeDXFPath(f"{thedir}/centerspline-fit-simplified.dxf", ps, ezdxf.colors.YELLOW)
+        if to_dxf:
+            writeDXFPath(f"{thedir}/centerspline-fit-simplified.dxf", ps, ezdxf.colors.YELLOW)
+
+        coords = np.array(ps)/1000
+        # save to file.
+        np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_centerspline-fit-simplified.txt", coords, fmt= "%.3e")
+        centerlines["centerspline_fit-simplified"] = coords
+
 
         cps = readBinPath(f"{thedir}/bspline1.bin")
         s7 = spline.bspline(cps)
@@ -146,14 +157,23 @@ def return_MST_centrelines(mesh_path, voxset_path,
 
         ps = [bezier[0] for bezier in s8]
         ps.append(s8[-1][-1])
-        writeDXFPath(f"{thedir}/centerspline-fit1.dxf", ps, ezdxf.colors.WHITE)
+        if to_dxf:
+            writeDXFPath(f"{thedir}/centerspline-fit1.dxf", ps, ezdxf.colors.WHITE)
+
+        
+        coords = np.array(ps)/1000
+        # save to file.
+        np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_centerspline-fit1.txt", coords, fmt= "%.3e")
+        centerlines["centerspline_fit1"] = coords
+
     else:
         print("simplified polyline has fewer than 2 vertices. Impossible to simplify further.")
         s4 = spline.subdivideBeziers(s2, 100)
 
         ps = [bezier[0] for bezier in s4]
         ps.append(s4[-1][-1])
-        writeDXFPath(f"{thedir}/centerspline-direct.dxf", ps, ezdxf.colors.GREEN)
+        if to_dxf:
+            writeDXFPath(f"{thedir}/centerspline-direct.dxf", ps, ezdxf.colors.GREEN)
         
         coords = np.array(ps)/1000
         # save to file.

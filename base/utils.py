@@ -8,6 +8,7 @@ import networkx as nx
 from scipy.stats import gaussian_kde
 from scipy.optimize import curve_fit
 from matplotlib.cm import tab20b
+import mistree as mist
 
 from sklearn.neighbors import NearestNeighbors
 from itertools import combinations
@@ -17,6 +18,7 @@ from stl import mesh
 from os import listdir
 from os.path import normpath, join
 
+from numba import jit
 import base.geometry as geom
 
 
@@ -115,25 +117,51 @@ def spatially_downsample(pointcloud: np.ndarray, min_distance: float)-> np.ndarr
     return downsampled.toNpArrayCopy()
 
 # convenience function to downsample a numpy array spatially using the cloudcompy implementation 
-def return_largest_component(pointcloud: np.ndarray, 
-                             octree_level: int,
+def return_largest_component(points: np.ndarray, 
+                             eps: int,
                              min_component_size: int)-> np.ndarray :
     """returns the largest connected component of a numpy.ndarray object (N x 3 matrix) of spatial coordinates using the dedicated CloudCompare
     algorithm. Returns a numpy.ndarray  (N x 3 matrix)"""
-    import cloudComPy as cc
 
-    cloud = cc.ccPointCloud()
-    cloud.coordsFromNPArray_copy(pointcloud)
+    point_cloud = o3d.geometry.PointCloud()
+    point_cloud.points = o3d.utility.Vector3dVector(points)
+    
+    min_points = min_component_size # Minimum number of points per cluster
+    dbscan_labels = np.array(point_cloud.cluster_dbscan(eps=eps, min_points=min_points, print_progress=True))
 
-    out = cc.ExtractConnectedComponents([cloud], octree_level, min_component_size) 
-    print(f"there were {len(out[1])} connected components.")
-    if len(out[1]) > 0:
-        largest = out[1][0]
-    else: 
-        largest = cloud
+    # find out the size of the connected components
+    cc_sizes = [np.sum(dbscan_labels == c) for c in np.unique(dbscan_labels)  if c >=0]
 
-    # return the coordinates of the cloud 
-    return largest.toNpArrayCopy()
+    if cc_sizes:
+        # select first largest
+        n_clusters = len(np.unique(dbscan_labels)) - 1
+        print(f"there are {n_clusters} clusters")
+        
+        cc0 = np.argmax(cc_sizes)    
+        cc_sizes[cc0] = 0
+
+        CC0 = points[dbscan_labels == cc0]
+    else:
+        CC0 = points
+
+    print(len(points))
+    return CC0
+
+### legacy using cloudComPy    
+    # import cloudComPy as cc
+
+    # cloud = cc.ccPointCloud()
+    # cloud.coordsFromNPArray_copy(pointcloud)
+
+    # out = cc.ExtractConnectedComponents([cloud], octree_level, min_component_size) 
+    # print(f"there were {len(out[1])} connected components.")
+    # if len(out[1]) > 0:
+    #     largest = out[1][0]
+    # else: 
+    #     largest = cloud
+
+    # # return the coordinates of the cloud 
+    # return largest.toNpArrayCopy()
 
 # convenience function to go from numpy to o3d needed by LBC
 def array_to_o3d(pointcloud: np.ndarray):
@@ -254,7 +282,61 @@ def return_ring(mesh, adjacent_triangles, P, nP, d, D):
     
     return ring, best_path
 
-### legacy adjacency matrix. 
+
+def find_ring_order(unordered_ring):
+    # reorder the section by computing a minimum spanning tree and find the longest path traversing the tree.
+    mst = mist.GetMST(x = unordered_ring[:, 0], y = unordered_ring[:, 1], z = unordered_ring[:, 2])
+
+    degree,_,_,_, edge_index,_ = mst.get_stats(include_index=True, k_neighbours= 10)
+    
+    # build a graph using the edges.
+    fullG = nx.graph.Graph(edge_index.T.tolist())
+
+    # identify the leaves of the tree
+    leaf = np.argwhere(degree==1).flatten().astype(int)
+
+    print(f"this minimum spanning tree has {len(leaf)} leaves. Need to identify the best path.")
+
+    # the shortest path linking our two extremities.
+    best_shortest_path = 0
+    best_comb = (0, 1)
+
+    # iterate over combination of leaf indices to find the longest path (in terms of nodes) in the tree.
+    for comb in tqdm(combinations(list(range(len(leaf))), 2)):
+        i, j = comb
+        centreline_path = nx.shortest_path_length(fullG, leaf[i], leaf[j])
+        if centreline_path >= best_shortest_path:
+            best_shortest_path = centreline_path
+            best_comb = comb
+
+    i, j = best_comb
+    best_path = nx.shortest_path(fullG, leaf[i], leaf[j])
+
+    return np.array(best_path).astype(int)
+
+### legacy adjacency matrix.
+def find_adjacent_triangles(vectors, indices):
+    # allow for different combinations of vertices by using np.roll on the cartesian coordinate triplet.
+    combi_vectors = np.vstack([vectors, vectors[:, [2,0, 1]], vectors[:, [1, 2, 0]]]).reshape((3,*vectors.shape))
+
+    # initialise the indices of neighbouring triangles.
+    adjacent_triangles = -999*np.ones((vectors.shape[0],3), dtype=int)
+    
+    for c, triangle_indices in tqdm(enumerate(indices), total=len(indices)):
+        combi_vec = combi_vectors[:,triangle_indices]
+        orig_triangle = vectors[c]
+    
+        sharing_vertices = np.argwhere(np.all(np.equal(orig_triangle,combi_vec), axis=3))[:,1]
+        
+        k = 0
+        for i in np.unique(sharing_vertices):
+            if np.argwhere(sharing_vertices==i).shape[0] == 2 and k < 3:
+                #print(f"this index appears {i}, corresponding to triangle {triangle_indices[i]} appears")
+                adjacent_triangles[c, k] = triangle_indices[i] 
+                k+=1
+    
+    return adjacent_triangles
+
 def find_neighbours_with_knn(theMesh, n_neighbors=12):
     """
     extracts a n x 3 matrix of neighbouring triangle indices given a meshed surface containing n triangle.
@@ -267,28 +349,11 @@ def find_neighbours_with_knn(theMesh, n_neighbors=12):
     distances, indices = knn.kneighbors(theMesh.centroids)
     
     vectors = theMesh.vectors
-    
-    # allow for different combinations of vertices by using np.roll on the cartesian coordinate triplet.
-    combi_vectors = np.vstack([vectors, np.roll(vectors, 1, axis =1), np.roll(vectors, 2, axis =1)]).reshape((3,*vectors.shape))
-
-    # initialise the indices of neighbouring triangles.
-    adjacent_triangles = -999*np.ones((vectors.shape[0],3), dtype=int)
-    
-    for c, triangle_indices in enumerate(indices):
-        combi_vec = combi_vectors[:,triangle_indices]
-        orig_triangle = vectors[c]
-    
-        sharing_vertices = np.argwhere(np.alltrue(np.equal(orig_triangle,combi_vec), axis=3))[:,1]
-        
-        k = 0
-        for i in np.unique(sharing_vertices):
-            if np.argwhere(sharing_vertices==i).shape[0] == 2 and k < 3:
-                #print(f"this index appears {i}, corresponding to triangle {triangle_indices[i]} appears")
-                adjacent_triangles[c, k] = triangle_indices[i] 
-                k+=1
+    adjacent_triangles = find_adjacent_triangles(vectors, indices)
     time_out = time.time()
     
-    print(f"knn search complete and neighbouring triangles found in {time_out - time_in:.4f}s ({vectors.shape[0]} triangle neighbour sets.)")
+    print("knn search complete and neighbouring triangles found in:  \n")
+    print(time_out - time_in, " s")
     
     return adjacent_triangles
 
@@ -323,18 +388,18 @@ def return_rings(mesh, adjacent_triangles)-> dict:
     cc_sizes = [np.sum(dbscan_labels == c) for c in np.unique(dbscan_labels)  if c >=0]
 
     # select first largest
-    n_clusters = len(np.unique(dbscan_labels))
+    n_clusters = len(np.unique(dbscan_labels)) - 1
+    print(f"there are {n_clusters} clusters")
     c = 1
 
     rings = {}
-    nPi = []
-    Pi = []
 
     while c <= n_clusters:
         cc0 = np.argmax(cc_sizes)    
         cc_sizes[cc0] = 0
 
         ring = edge_centroids[dbscan_labels == cc0]
+        ring_mesh_indices = np.array(edge_triangles)[dbscan_labels == cc0]
         P, nP = adjust_plane(ring)
         
         #print(f"found ring  with {len(ring)} points.")
@@ -352,6 +417,7 @@ def return_rings(mesh, adjacent_triangles)-> dict:
         rings[f"ring{c}"] =  ring
         rings[f"P{c}"] =  P
         rings[f"nP{c}"] =  nP
+        rings[f"ring{c}_mesh_indices"] = ring_mesh_indices
         
         c+=1
 

@@ -7,7 +7,7 @@ from scipy.sparse.csgraph import minimum_spanning_tree
 from sklearn.metrics import pairwise_distances
 from base.geometry import  rotate
 from time import time
-
+import tqdm as tqdm
 import warnings 
 
 
@@ -101,8 +101,6 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
     # what is T0 ?? An initialised coordinate triplet
     T0 = np.zeros((3, 3))
 
-    
-    
     PTc = np.linalg.norm(P - theMesh.centroids[intersected_triangles], axis = 1)
     argminPTc = np.argmin(PTc)
     start_idx = intersected_triangles[argminPTc]
@@ -207,7 +205,7 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
             
 
             ring_dic[f"P_mean_ring{c}"] = np.linalg.norm(P - np.mean(M[ring_bool], axis = 0))
-            ring_dic[f"ring{c}_extent"] = np.prod(np.sqrt(ordered_eigenvalues)[1:])
+            ring_dic[f"ring{c}_extent"] = np.prod(np.sqrt(ordered_eigenvalues[1:]))
 
             rings.append(ring_dic)
 
@@ -340,7 +338,7 @@ def dumb_area_minimiser(theMesh,  P, nP0, niter=40, eps=1e-1, global_shift = np.
     msg =f"normed W / A did not reach the desired tolerance of {eps}"
     return log, msg , i
 
-def minimise_area(theMesh,  P, nP0, niter=20, eps=0.2, global_shift = np.zeros(3), verbose = False):
+def minimise_area(theMesh,  P, nP0, niter=20, eps=0.1, global_shift = np.zeros(3), verbose = False):
     s = time()
     # define the plane of section by a point and its normal. 
     nP = nP0
@@ -387,11 +385,15 @@ def minimise_area(theMesh,  P, nP0, niter=20, eps=0.2, global_shift = np.zeros(3
 
             intersect_1 = mesh_intersect(theMesh, P+global_shift,(R1 @ nP))
             intersect_2 = mesh_intersect(theMesh, P+global_shift,(R2 @ nP))
+            
+            try: 
+                nP1 = intersect_1[5]
+                nP2 = intersect_2[5]
+            except TypeError:
+                msg =f"exited because of empty intersection."
+                e = time()
+                return log, msg, e-s , i
 
-            nP1 = intersect_1[5]
-            nP2 = intersect_2[5]
-
-            print(np.round(nP1, 2), np.round(nP2, 2))
             A1 = intersect_1[4]
             A2 = intersect_2[4]
             W1 = intersect_1[3]
@@ -454,7 +456,8 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                          L = 10, 
                          ds= 0.5, 
                          verbose= False,
-                         minimise_strategy = "fancy")-> dict:
+                         minimise_strategy = "fancy",
+                         eps= 0.1)-> dict:
     # initialise the position along the conduit. 
     P = P_start
     nP = nP0
@@ -472,62 +475,78 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
     epsilon = ds / 2
     d = L 
     # where 2 * L is the expected maximum curvilinear length of the centreline walk. 
-    max_it = np.floor(L / ds)
-    print(max_it)
+    max_it = np.floor(1.25* L / ds)
 
     k = 0
-
-    while d > epsilon and k < max_it: 
-        # check that we are indeed farther away from the end point than at least one epsilon.
-        assert d > epsilon
-
-        
-        try:
-            if minimise_strategy == "dumb":
-                log, _, iterations = dumb_area_minimiser(mesh_data, P, nP, verbose = verbose)
-            elif minimise_strategy =="fancy":
-                log, _, _, iterations = minimise_area(mesh_data, P, nP, verbose = verbose)
-            else:
-                print("invalid minimising strategy chosen.")
-
-            best_section = log[-1][0]
-            n_it.append(iterations)
-            vertices.append(best_section)
-            areas.append(log[-1][4])
-
-            # extract the reoriented normal
-            nP_new = log[-1][5]
-
-            # calculate the centre of gravity of the best polyline section found by area minimisation 
-            cog =  np.mean(best_section, axis = 0)
-            print("centre of gravity of best section", cog)
-            ct[-1] = cog
+    with tqdm.tqdm(total=max_it) as pbar:
+        while d > epsilon and k < max_it: 
+            # check that we are indeed farther away from the end point than at least one epsilon.
+            assert d > epsilon
 
             
-            
-            # check we are moving in the same half space as the one defined by the previous normal vector.
-            step_sign = np.sign(nP @ nP_new)
-            # step in this direction
-            P = cog + ds*nP_new*step_sign
-            # update the current normal vector value.
-            nP = nP_new*step_sign
+            try:
+                if minimise_strategy == "dumb":
+                    log, _, iterations = dumb_area_minimiser(mesh_data, P, nP, verbose = verbose, eps= eps)
+                elif minimise_strategy =="fancy":
+                    log, _, _, iterations = minimise_area(mesh_data, P, nP, verbose = verbose, eps= eps)
+                else:
+                    print("invalid minimising strategy chosen.")
 
-            if verbose == True:
-                print(f"moving by step: {np.round(nP, 3)} to {np.round(P, 3)}.")
+                best_section = log[-1][0]
+                n_it.append(iterations)
+                vertices.append(best_section)
+                areas.append(log[-1][4])
 
-            # update the centreline and normal vector log
-            ct.append(P)
-            normals.append(nP)
+                # extract the reoriented normal
+                nP_new = log[-1][5]
 
-            d = np.linalg.norm(P_end-P) # check the distance threshold
-            k+=1 # update the iteration counter
+                # calculate the centre of gravity of the best polyline section found by area minimisation 
+                cog =  np.mean(best_section, axis = 0)
+                if verbose == True:
+                    print("centre of gravity of best section", cog)
+                ct[-1] = cog
 
-            if verbose == True:
-                print(f"now moving to distance {d} from the end point.")
-        except (ValueError, IndexError):
-            print("stopping process at empty intersection")
-            k = max_it
-            pass
+                
+                
+                # check we are moving in the same half space as the one defined by the previous normal vector.
+                step_sign = np.sign(nP @ nP_new)
+                # step in this direction
+                P = cog + ds*nP_new*step_sign
+                # update the current normal vector value.
+                nP = nP_new*step_sign
+
+                if verbose == True:
+                    print(f"moving by step: {np.round(nP, 3)} to {np.round(P, 3)}.")
+
+                # update the centreline and normal vector log
+                ct.append(P)
+                normals.append(nP)
+
+                d = np.linalg.norm(P_end-P) # check the distance threshold
+
+                k+=1 # update the iteration counter
+
+                if verbose == True:
+                    print(f"now moving to distance {d} from the end point.")
+                
+            except (ValueError, IndexError):
+                print("stopping process at empty intersection")
+                k = max_it
+                pass
+            pbar.update(1)       
+    if k != max_it:
+        # add the last section. 
+        if minimise_strategy == "dumb":
+            log, _, iterations = dumb_area_minimiser(mesh_data, P, nP, verbose = verbose, eps= eps)
+        elif minimise_strategy =="fancy":
+            log, _, _, iterations = minimise_area(mesh_data, P, nP, verbose = verbose, eps= eps)
+        else:
+            print("invalid minimising strategy chosen.")
+
+        best_section = log[-1][0]
+        n_it.append(iterations)
+        vertices.append(best_section)
+        areas.append(log[-1][4])
 
     result = {"centreline": np.array(ct), 
               "vertices": vertices, 

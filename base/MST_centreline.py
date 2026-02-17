@@ -16,10 +16,11 @@ DELTA = 200
 def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
                           delta: float = DELTA, 
                           verbose = False,
-                          to_dxf = False, datatype ="real") -> dict:
+                          to_dxf = False) -> dict:
     
     
     conduit_name = split(mesh_path)[-1][:-4]
+    id = split(split(mesh_path)[0])[-1].split("_")[0]
 
     voxelize_path = abspath(normpath(f"./base/voxelize.exe"))
     mesh_path = abspath(normpath(mesh_path))
@@ -34,9 +35,9 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     c.addEdges()
 
     # to look at the grid and clearance
-    c.writeEdgesMidpoints(f"temp//{datatype}//{conduit_name}_edges_midpoints.xyz")
+    c.writeEdgesMidpoints(f"temp//{id}_{conduit_name}//mst//{conduit_name}_edges_midpoints.xyz")
     # to look at the grid and clearance
-    c.writeEdges(f"temp//{datatype}//{conduit_name}_edges.xyz")
+    c.writeEdges(f"temp//{id}_{conduit_name}//mst//{conduit_name}_edges.xyz")
 
     source1 = c.findNearestNode(P1*1000, verbose = verbose)
     target1 = c.findNearestNode(P2*1000, verbose = verbose)
@@ -45,17 +46,17 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     p = c.computeCenterline(source1, target1)
 
     # for demo purposes, write the edges of the maximum spanning tree used. 
-    c.writeMSTEdges(f"temp//{datatype}//{conduit_name}_MST_edges.xyz")
+    c.writeMSTEdges(f"temp//{id}_{conduit_name}//mst//{conduit_name}_MST_edges.xyz")
 
     jagged_centreline = [np.array(x) for x in p]
     coords = np.array(jagged_centreline) / 1000
     # save to file.
-    np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_jagged_centreline.txt", coords, fmt= "%.3e")
+    np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_jagged_centreline.txt", coords, fmt= "%.3e")
 
     u = Unzigzag(p, c.G.nodes, c.delta)
     u.addEdges()
     # to look at the grid and clearance
-    u.writeEdges(f"temp//{datatype}//{conduit_name}_unzigzag_edges.xyz")    
+    u.writeEdges(f"temp//{id}_{conduit_name}//mst//{conduit_name}_unzigzag_edges.xyz")    
 
     p = u.shortestPath(source1, target1)
 
@@ -71,10 +72,10 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     centerlines = {}
     
     # save to file.
-    np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_raw_centreline.txt", coords, fmt= "%.3e")
+    np.savetxt(f"./temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_raw_centreline.txt", coords, fmt= "%.3e")
     centerlines["raw"] = coords
 
-    thedir = "./temp/centrelines"
+    thedir = f"./temp//{id}_{conduit_name}//mst"
     # polygonal path
     if to_dxf:
         writeDXFPath(f"{thedir}/centerline.dxf", p1)
@@ -85,7 +86,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
     coords = np.array(p2)/1000
     # save to file.
-    np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{DELTA}_centerline-simplified.txt", coords, fmt= "%.3e")
+    np.savetxt(f"./temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerline-simplified.txt", coords, fmt= "%.3e")
     centerlines["simplified"] = coords
 
 
@@ -147,7 +148,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_centerspline-fit-simplified.txt", coords, fmt= "%.3e")
+        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit-simplified.txt", coords, fmt= "%.3e")
         centerlines["centerspline_fit-simplified"] = coords
 
 
@@ -163,7 +164,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
         
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_centerspline-fit1.txt", coords, fmt= "%.3e")
+        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit1.txt", coords, fmt= "%.3e")
         centerlines["centerspline_fit1"] = coords
 
     else:
@@ -177,7 +178,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
         
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.3e")
+        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.3e")
         centerlines["centerspline_direct"] = coords
 
     return centerlines

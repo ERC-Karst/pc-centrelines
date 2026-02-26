@@ -51,7 +51,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     jagged_centreline = [np.array(x) for x in p]
     coords = np.array(jagged_centreline) / 1000
     # save to file.
-    np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_jagged_centreline.txt", coords, fmt= "%.3e")
+    np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_jagged_centreline.txt", coords, fmt= "%.5e")
 
     u = Unzigzag(p, c.G.nodes, c.delta)
     u.addEdges()
@@ -72,7 +72,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     centerlines = {}
     
     # save to file.
-    np.savetxt(f"./temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_raw_centreline.txt", coords, fmt= "%.3e")
+    np.savetxt(f"./temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_raw_centreline.txt", coords, fmt= "%.5e")
     centerlines["raw"] = coords
 
     thedir = f"./temp//{id}_{conduit_name}//mst"
@@ -86,7 +86,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
     coords = np.array(p2)/1000
     # save to file.
-    np.savetxt(f"./temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerline-simplified.txt", coords, fmt= "%.3e")
+    np.savetxt(f"./temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerline-simplified.txt", coords, fmt= "%.5e")
     centerlines["simplified"] = coords
 
 
@@ -133,7 +133,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"./temp/centrelines/MST_{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.3e")
+        np.savetxt(f"./temp/{id}_{conduit_name}/mst/{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.6e")
         centerlines["centerspline_direct"] = coords
 
 
@@ -148,9 +148,8 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit-simplified.txt", coords, fmt= "%.3e")
+        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit-simplified.txt", coords, fmt= "%.5e")
         centerlines["centerspline_fit-simplified"] = coords
-
 
         cps = readBinPath(f"{thedir}/bspline1.bin")
         s7 = spline.bspline(cps)
@@ -164,7 +163,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
         
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit1.txt", coords, fmt= "%.3e")
+        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit1.txt", coords, fmt= "%.5e")
         centerlines["centerspline_fit1"] = coords
 
     else:
@@ -178,7 +177,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
         
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.3e")
+        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.5e")
         centerlines["centerspline_direct"] = coords
 
     return centerlines

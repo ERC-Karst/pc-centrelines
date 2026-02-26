@@ -170,7 +170,7 @@ def mesh_intersect(theMesh, P, nP, verbose= False):
     # select the cluster closest to point P. 
     point_cloud = o3d.geometry.PointCloud()
     point_cloud.points = o3d.utility.Vector3dVector(M)
-    epsilon = 0.5 # Distance threshold for points in a cluster
+    epsilon = 0.2 # Distance threshold for points in a cluster
     min_points = 10 # Minimum number of points per cluster
     dbscan_labels = np.array(point_cloud.cluster_dbscan(eps=epsilon, min_points=min_points, print_progress=True))
 
@@ -351,16 +351,20 @@ def minimise_area(theMesh,  P, nP0, niter=20, eps=0.1, global_shift = np.zeros(3
     except ValueError:
         print("likely empty intersection")
         i = niter
-        pass
+
 
     while i < niter:
         # get the intersection dictionary given a current plane normal nP
-    
-        W = log[-1][3]
-        A = log[-1][4]
-        nP = log[-1][5]
+        if log[-1]: 
+            W = log[-1][3]
+            A = log[-1][4]
+            nP = log[-1][5]
+            normW = np.linalg.norm(W)
 
-        normW = np.linalg.norm(W)
+        else:
+            print("ending on a none type")
+            msg = "ended on a none type intersection."
+            return log, msg, i
 
         if verbose==True:
             print(A)
@@ -479,11 +483,12 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
 
     k = 0
     with tqdm.tqdm(total=max_it) as pbar:
-        while d > epsilon and k < max_it: 
+        add_final = True
+        _continue = True
+        while _continue and k < max_it: 
             # check that we are indeed farther away from the end point than at least one epsilon.
             assert d > epsilon
 
-            
             try:
                 if minimise_strategy == "dumb":
                     log, _, iterations = dumb_area_minimiser(mesh_data, P, nP, verbose = verbose, eps= eps)
@@ -505,8 +510,11 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                 if verbose == True:
                     print("centre of gravity of best section", cog)
                 ct[-1] = cog
-
-                
+                # check we are not making a huge jump (no more than 3 times the current ds.)
+                if len(ct) > 2:
+                    fwd_step = np.linalg.norm(ct[-2] - ct[-1])
+                    if fwd_step > 3*ds:
+                        raise ValueError
                 
                 # check we are moving in the same half space as the one defined by the previous normal vector.
                 step_sign = np.sign(nP @ nP_new)
@@ -522,7 +530,19 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                 ct.append(P)
                 normals.append(nP)
 
+                # the distance threshold should be checked by using
+                # check the distance of end point in the plane... 
+                dplane = (P_end-P) @ nP 
+
+                if dplane < eps:
+                    if d < 5*epsilon:
+                        # stop if the end point is close to the plane of section
+                        # and the barycentre is somewhat close to the end point.
+                        _continue = False
+
                 d = np.linalg.norm(P_end-P) # check the distance threshold
+                if d < epsilon:
+                    _continue = False
 
                 k+=1 # update the iteration counter
 
@@ -530,11 +550,12 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                     print(f"now moving to distance {d} from the end point.")
                 
             except (ValueError, IndexError):
-                print("stopping process at empty intersection")
+                print("stopping process at empty intersection or too big a jump")
                 k = max_it
+                add_final = False
                 pass
             pbar.update(1)       
-    if k != max_it:
+    if k != max_it and add_final:
         # add the last section. 
         if minimise_strategy == "dumb":
             log, _, iterations = dumb_area_minimiser(mesh_data, P, nP, verbose = verbose, eps= eps)

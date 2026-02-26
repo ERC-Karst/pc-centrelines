@@ -1,0 +1,63 @@
+skeleton_kwargs : 
+  color : "firebrick"
+  marker: "o"
+  s : 1 
+  zorder : -10
+
+node_kwargs : 
+  color : "k"  
+  marker : "o"  
+  s : 10  
+  zorder : 119 
+  edgecolor : "white" 
+  linewidth : 0.7 
+
+ct_kwargs :  
+  color : "red" 
+  lw : 1.2 
+  zorder : 118 
+  ls : "-" 
+
+ct1_kwargs :  
+  color : "fuchsia" 
+  lw : 1.2 
+  zorder : 118 
+  ls : "-" 
+
+ct2_kwargs :  
+  color : "dodgerblue" 
+  lw : 1.2 
+  zorder : 118 
+  ls : "-" 
+
+mesh_kwargs :  
+  color : "lightgrey" 
+  zorder : -20  
+  marker : "s" 
+  s : 5 
+
+start_kwargs :  
+  color : "dodgerblue"  
+  marker : "o"  
+  s : 20  
+  zorder : 120 
+  edgecolor : "black" 
+  linewidth : 1.1  
+  label : "source" 
+
+end_kwargs :  
+  color : "fuchsia"  
+  marker : "o"  
+  s : 20  
+  zorder : 120 
+  edgecolor : "black" 
+  linewidth : 1.1  
+  label : "target"
+
+section_node_kwargs :  
+  marker : "o"  
+  s : 20  
+  zorder : 120 
+  edgecolor : "black" 
+  linewidth : 1.1  
+  label : "section node" 

@@ -246,8 +246,9 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
     Implementation of 'Möller, T., & Hughes, J. F. (1999). Efficiently Building a Matrix to Rotate One Vector to Another. 
     Journal of Graphics Tools, 4(4), 1–4. doi:10.1080/10867651.1999.10487509'
     """
-    t = t / np.linalg.norm(t)
-    f = f / np.linalg.norm(f)
+    print("troubleshooting:  ", t, f, np.linalg.norm(t), np.linalg.norm(f))
+    t = t.astype(float) / np.linalg.norm(t)
+    f = f.astype(float) / np.linalg.norm(f)
 
     # check that the vectors are not already near parallel. 
     if np.allclose(np.abs(np.dot(f, t)), 1, 0.01):
@@ -297,8 +298,11 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
             print("Rotation unsuccessful")
         return R
     
-def to2D(points3d, nP):
-    d = nP * np.sign(nP[2])
+def to2D(points3d, nP, returnTransform=False):
+    if np.sign(nP[2]) != 0:
+        d = nP * np.sign(nP[2])
+    else:
+        d = nP
     
     d1 = d.copy()
     # project onto horizontal plane
@@ -314,7 +318,11 @@ def to2D(points3d, nP):
     pp_rotated = R2 @ pp_vertical
     # only assign the x and y direction for the 2d case
     points2d = pp_rotated.T[:, [0, 2]]
-    return points2d
+    
+    if returnTransform == False:
+        return points2d
+    else:
+        return points2d, R1, R2
 
 
 def is_closed(a:np.ndarray, tol= 1e-1):
@@ -369,8 +377,9 @@ def compute_polygon_solidity(a: np.ndarray):
 
 
 def return_below_fill_height(section, fill_height):
+    # roll the section so any gap is at the top, always.
     polysection = Polygon(section)
-    
+
     minx, miny = np.min(section, axis = 0)
     maxx, maxy = np.max(section, axis = 0)
     bounds = [minx, maxx, miny, maxy]
@@ -468,11 +477,12 @@ def describe(section: np.ndarray) -> dict:
     circular_variance = compute_circular_variance(section, cog, area)
     closed = is_closed(section)
 
-    _, ellipse_area, _, ellipse_aspect_ratio, ellipse_axes, ellipse_eigenvalues, ellipse_rotation = fit_ellipse(section)
+    bf_ellipse, ellipse_area, _, ellipse_aspect_ratio, ellipse_axes, ellipse_eigenvalues, ellipse_rotation = fit_ellipse(section)
 
     description = dict( 
     cog = cog,
     area = area,
+    bf_ellipse = bf_ellipse,
     ellipse_area= ellipse_area,
     ellipse_aspect_ratio = ellipse_aspect_ratio,
     ellipse_axes = ellipse_axes,

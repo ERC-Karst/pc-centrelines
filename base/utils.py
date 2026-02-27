@@ -372,6 +372,18 @@ def adjust_plane(ring):
 
     return P, nP
 
+def return_edge_midpoints(mesh, adjacent_triangles):
+    edge_triangles = list(np.argwhere(adjacent_triangles[:,2] == -999).flatten())
+    edge_centroids = mesh.centroids[edge_triangles]
+
+    point_cloud = o3d.geometry.PointCloud()
+    point_cloud.points = o3d.utility.Vector3dVector(edge_centroids)
+    eps = 0.5 # Distance threshold for points in a cluster
+    min_points = 10 # Minimum number of points per cluster
+    dbscan_labels = np.array(point_cloud.cluster_dbscan(eps=eps, min_points=min_points, print_progress=True))
+
+    return edge_centroids, dbscan_labels
+
 def return_rings(mesh, adjacent_triangles)-> dict:
 
 

@@ -384,8 +384,54 @@ def return_edge_midpoints(mesh, adjacent_triangles):
 
     return edge_centroids, dbscan_labels
 
-def return_rings(mesh, adjacent_triangles)-> dict:
+def return_source_target(mesh, adjacent_triangles, eps= 0.1) -> tuple:
+    """Analyses the mesh geometry, finds the two largest ring openings, computes the centre of
+    mass of each ring, adjusts a plane to the ring vertex coordinates, then computes a direction in which to shift
+    the ring centre of mass to put the source into the mesh. 
 
+    :param mesh: a mesh object_
+    :type mesh: _stl.Mesh()_
+    :param adjacent_triangles: a matrix containing the mesh triangle adjacency index matrix.
+    :type adjacent_triangles: np.ndarray()
+    :param eps: the voxel size by which to move the ring centre of mass inwards
+    :type eps: float
+    :return: a tuple of P1, nP1, P2, nP2 coordinates as np.ndarray()
+    :rtype: tuple
+    """
+    ## find the rings (the largest two clusters of points lying on edges.)
+    edge_midpoints, labels = return_edge_midpoints(mesh, adjacent_triangles)
+    ## fit a plane into the direction of the passage. 
+    # find the two largest connected components associated with rings. 
+
+    # find out the size of the connected components
+    cc_sizes = [np.sum(labels == c) for c in np.unique(labels)  if c >=0]
+    # order the indices by decreasing size.
+    cc_argsort = np.argsort(cc_sizes)[::-1]
+
+    # index the rings by their dbscan label and return only the edge midpoint coordinates.
+    ring1 = edge_midpoints[labels==cc_argsort[0]]
+    ring2 = edge_midpoints[labels==cc_argsort[1]]
+
+    # fit a plane to the cloud corresponding to edge midpoints, return a point in this plane and the 
+    # normal vector.
+    P1, nP1 = adjust_plane(ring1)
+    P2, nP2 = adjust_plane(ring2)
+
+    P1_neighbours = np.logical_and(np.abs((P1 - mesh.centroids) @ nP1)  < 2 *eps,
+                               np.linalg.norm((P1 - mesh.centroids), axis=1)  < 10 *eps)
+    P2_neighbours = np.logical_and(np.abs((P2 - mesh.centroids) @ nP2)  < 2 *eps, 
+                               np.linalg.norm((P2 - mesh.centroids), axis=1)  < 10 *eps)
+
+    sign_P1 = np.sign(nP1 @ (np.mean(mesh.centroids[P1_neighbours], axis =0) - P1))
+    sign_P2 = np.sign(nP2 @ (np.mean(mesh.centroids[P2_neighbours], axis =0) - P2))
+
+    P1_in = np.mean(ring1, axis =0)+ nP1*sign_P1*eps
+    P2_in = np.mean(ring2, axis =0)+ nP2*sign_P2*eps 
+
+    return P1_in, sign_P1*nP1, P2_in, sign_P2*nP2
+                    
+
+def return_rings(mesh, adjacent_triangles)-> dict:
 
     edge_triangles = list(np.argwhere(adjacent_triangles[:,2] == -999).flatten())
     edge_centroids = mesh.centroids[edge_triangles]

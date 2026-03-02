@@ -364,7 +364,8 @@ def minimise_area(theMesh,  P, nP0, niter=20, eps=0.1, global_shift = np.zeros(3
         else:
             print("ending on a none type")
             msg = "ended on a none type intersection."
-            return log, msg, i
+            e = time()
+            return log, msg, e-s, i
 
         if verbose==True:
             print(A)
@@ -472,6 +473,7 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
     areas = []
     normals= []
     n_it = []
+    logs = []
 
     # append the first starting point. 
     ct.append(P)
@@ -501,6 +503,7 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                 n_it.append(iterations)
                 vertices.append(best_section)
                 areas.append(log[-1][4])
+                logs.append(log)
 
                 # extract the reoriented normal
                 nP_new = log[-1][5]
@@ -560,19 +563,22 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
         if minimise_strategy == "dumb":
             log, _, iterations = dumb_area_minimiser(mesh_data, P, nP, verbose = verbose, eps= eps)
         elif minimise_strategy =="fancy":
-            log, _, _, iterations = minimise_area(mesh_data, P, nP, verbose = verbose, eps= eps)
+            log, _, _,  iterations = minimise_area(mesh_data, P, nP, verbose = verbose, eps= eps)
         else:
             print("invalid minimising strategy chosen.")
 
-        best_section = log[-1][0]
-        n_it.append(iterations)
-        vertices.append(best_section)
-        areas.append(log[-1][4])
+        if log[-1] is not None:
+            best_section = log[-1][0]
+            n_it.append(iterations)
+            vertices.append(best_section)
+            areas.append(log[-1][4])
+            logs.append(log)
 
     result = {"centreline": np.array(ct), 
               "vertices": vertices, 
               "areas": np.array(areas),
               "normals": np.array(normals),
-              "n_iterations": n_it}
+              "n_iterations": n_it,
+              "logs": logs}
     
     return result

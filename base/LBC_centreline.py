@@ -11,7 +11,7 @@ from os.path import exists
 from itertools import combinations
 from stl import Mesh
 from time import time
-from base.utils import find_neighbours_with_knn, array_to_o3d, spatially_downsample, return_largest_component, return_rings
+from utils import find_neighbours_with_knn, array_to_o3d, spatially_downsample, return_largest_component, return_rings
 from pc_skeletor import LBC
 
 __all__ = ['return_LBC_centreline']

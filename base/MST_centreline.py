@@ -4,9 +4,9 @@ from os.path import normpath, exists, split, abspath
 from subprocess import check_output
 
 from stl import mesh
-from base.utils import find_neighbours_with_knn, return_rings
-from base.centreline import *
-from base.centreline import simplify, spline
+from utils import find_neighbours_with_knn, return_rings
+from centreline import *
+from centreline import simplify, spline
 
 __all__ = ['return_MST_centrelines']
 
@@ -22,7 +22,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     conduit_name = split(mesh_path)[-1][:-4]
     id = split(split(mesh_path)[0])[-1].split("_")[0]
 
-    voxelize_path = abspath(normpath(f"./base/voxelize.exe"))
+    voxelize_path = abspath(normpath(f"./voxelize.exe"))
     mesh_path = abspath(normpath(mesh_path))
     voxset_path = abspath(normpath(voxset_path))
 
@@ -35,9 +35,9 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     c.addEdges()
 
     # to look at the grid and clearance
-    c.writeEdgesMidpoints(f"temp//{id}_{conduit_name}//mst//{conduit_name}_edges_midpoints.xyz")
+    c.writeEdgesMidpoints(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_edges_midpoints.xyz")
     # to look at the grid and clearance
-    c.writeEdges(f"temp//{id}_{conduit_name}//mst//{conduit_name}_edges.xyz")
+    c.writeEdges(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_edges.xyz")
 
     source1 = c.findNearestNode(P1*1000, verbose = verbose)
     target1 = c.findNearestNode(P2*1000, verbose = verbose)
@@ -46,17 +46,17 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     p = c.computeCenterline(source1, target1)
 
     # for demo purposes, write the edges of the maximum spanning tree used. 
-    c.writeMSTEdges(f"temp//{id}_{conduit_name}//mst//{conduit_name}_MST_edges.xyz")
+    c.writeMSTEdges(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_MST_edges.xyz")
 
     jagged_centreline = [np.array(x) for x in p]
     coords = np.array(jagged_centreline) / 1000
     # save to file.
-    np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_jagged_centreline.txt", coords, fmt= "%.5e")
+    np.savetxt(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_jagged_centreline.txt", coords, fmt= "%.5e")
 
     u = Unzigzag(p, c.G.nodes, c.delta)
     u.addEdges()
     # to look at the grid and clearance
-    u.writeEdges(f"temp//{id}_{conduit_name}//mst//{conduit_name}_unzigzag_edges.xyz")    
+    u.writeEdges(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_unzigzag_edges.xyz")    
 
     p = u.shortestPath(source1, target1)
 
@@ -72,10 +72,10 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     centerlines = {}
     
     # save to file.
-    np.savetxt(f"./temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_raw_centreline.txt", coords, fmt= "%.5e")
+    np.savetxt(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_raw_centreline.txt", coords, fmt= "%.5e")
     centerlines["raw"] = coords
 
-    thedir = f"./temp//{id}_{conduit_name}//mst"
+    thedir = f"../temp//{id}_{conduit_name}//mst"
     # polygonal path
     if to_dxf:
         writeDXFPath(f"{thedir}/centerline.dxf", p1)
@@ -86,7 +86,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
     coords = np.array(p2)/1000
     # save to file.
-    np.savetxt(f"./temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerline-simplified.txt", coords, fmt= "%.5e")
+    np.savetxt(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerline-simplified.txt", coords, fmt= "%.5e")
     centerlines["simplified"] = coords
 
 
@@ -97,10 +97,10 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     writeBinPath(f"{thedir}/path.bin", p1)
     writeBinPath(f"{thedir}/path-simplified.bin", p2)
 
-    runModule("./base/bspliner", [str(len(p1) / 3), f"{thedir}/path.bin", f"{thedir}/bspline.bin"])
-    runModule("./base/bspliner", [str(len(p2) / 3), f"{thedir}/path.bin", f"{thedir}/bspline1.bin"])
+    runModule("./bspliner", [str(len(p1) / 3), f"{thedir}/path.bin", f"{thedir}/bspline.bin"])
+    runModule("./bspliner", [str(len(p2) / 3), f"{thedir}/path.bin", f"{thedir}/bspline1.bin"])
     runModule(
-        "./base/bspliner",
+        "./bspliner",
         [
             str(len(p2) / 3),
             f"{thedir}/path-simplified.bin",
@@ -133,7 +133,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"./temp/{id}_{conduit_name}/mst/{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.6e")
+        np.savetxt(f"../temp/{id}_{conduit_name}/mst/{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.6e")
         centerlines["centerspline_direct"] = coords
 
 
@@ -148,7 +148,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit-simplified.txt", coords, fmt= "%.5e")
+        np.savetxt(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit-simplified.txt", coords, fmt= "%.5e")
         centerlines["centerspline_fit-simplified"] = coords
 
         cps = readBinPath(f"{thedir}/bspline1.bin")
@@ -163,7 +163,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
         
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit1.txt", coords, fmt= "%.5e")
+        np.savetxt(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit1.txt", coords, fmt= "%.5e")
         centerlines["centerspline_fit1"] = coords
 
     else:
@@ -177,7 +177,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
         
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.5e")
+        np.savetxt(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.5e")
         centerlines["centerspline_direct"] = coords
 
     return centerlines

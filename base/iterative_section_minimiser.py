@@ -5,7 +5,7 @@ import open3d as o3d
 from itertools import permutations
 from scipy.sparse.csgraph import minimum_spanning_tree
 from sklearn.metrics import pairwise_distances
-from base.geometry import  rotate
+from geometry import  rotate
 from time import time
 import tqdm as tqdm
 import warnings 

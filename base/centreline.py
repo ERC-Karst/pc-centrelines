@@ -15,8 +15,8 @@ from scipy.spatial import KDTree
 import networkx as nx
 import ezdxf
 
-from base import spline
-from base import simplify
+import spline
+import simplify
 from os.path import normpath
 
 

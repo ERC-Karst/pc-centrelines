@@ -19,7 +19,7 @@ from os import listdir
 from os.path import normpath, join
 
 from numba import jit
-import base.geometry as geom
+import geometry as geom
 
 
 def list_all_descriptors(repository):

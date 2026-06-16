@@ -37,7 +37,7 @@ mesh_kwargs :
   s : 5 
 
 start_kwargs :  
-  color : "dodgerblue"  
+  color : "limegreen"  
   marker : "o"  
   s : 20  
   zorder : 120 

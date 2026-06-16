@@ -516,7 +516,7 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                 # check we are not making a huge jump (no more than 3 times the current ds.)
                 if len(ct) > 2:
                     fwd_step = np.linalg.norm(ct[-2] - ct[-1])
-                    if fwd_step > 3*ds:
+                    if fwd_step > 5*ds:
                         raise ValueError
                 
                 # check we are moving in the same half space as the one defined by the previous normal vector.
@@ -552,12 +552,13 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                 if verbose == True:
                     print(f"now moving to distance {d} from the end point.")
                 
-            except (ValueError, IndexError):
+            except (ValueError, IndexError, TypeError):
                 print("stopping process at empty intersection or too big a jump")
                 k = max_it
                 add_final = False
                 pass
-            pbar.update(1)       
+            pbar.update(1) 
+
     if k != max_it and add_final:
         # add the last section. 
         if minimise_strategy == "dumb":

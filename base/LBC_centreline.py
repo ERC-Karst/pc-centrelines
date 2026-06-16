@@ -58,6 +58,7 @@ def return_LBC_centreline(meshdata,
 
     print(f"extracted skeleton in {time() - s:.4f}s")
     s = time()
+
     downsampled_lbc = lbc.contracted_point_cloud.voxel_down_sample(voxel_size = ct_args["centreline_down_sample"])
     downsampled_coords = np.asarray(downsampled_lbc.points) + local_shift
 
@@ -118,7 +119,8 @@ def return_LBC_centreline(meshdata,
 
     return dict(sparse_cloud=cc0_downsampled_coords,
                 mst_graph = fullG,
-                centreline= best_path)
+                centreline= best_path,
+                skeleton_cloud_size=np.asarray(lbc.contracted_point_cloud.points).shape[0])
     
     # # find the shortest path linking node extremities 
     # # definition of extremities (from initial guesses and normals using the mesh. )

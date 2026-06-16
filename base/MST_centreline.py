@@ -165,6 +165,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
         # save to file.
         np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-fit1.txt", coords, fmt= "%.5e")
         centerlines["centerspline_fit1"] = coords
+        centerlines["original_grid_points"] = len(c.G)
 
     else:
         print("simplified polyline has fewer than 2 vertices. Impossible to simplify further.")
@@ -180,4 +181,6 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
         np.savetxt(f"temp//{id}_{conduit_name}//mst//{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.5e")
         centerlines["centerspline_direct"] = coords
 
+        centerlines["original_grid_points"] = len(c.G)
+        
     return centerlines

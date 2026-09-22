@@ -516,7 +516,7 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                 # check we are not making a huge jump (no more than 3 times the current ds.)
                 if len(ct) > 2:
                     fwd_step = np.linalg.norm(ct[-2] - ct[-1])
-                    if fwd_step > 5*ds:
+                    if fwd_step > 25*ds:
                         raise ValueError
                 
                 # check we are moving in the same half space as the one defined by the previous normal vector.
@@ -542,6 +542,8 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                         # stop if the end point is close to the plane of section
                         # and the barycentre is somewhat close to the end point.
                         _continue = False
+                    else:
+                        print(f"possibly too big a jump! {d:.5f}")
 
                 d = np.linalg.norm(P_end-P) # check the distance threshold
                 if d < epsilon:
@@ -553,6 +555,7 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                     print(f"now moving to distance {d} from the end point.")
                 
             except (ValueError, IndexError, TypeError):
+                print(f"jump of {d:.4f}, for epsilon: {eps:.4f}")
                 print("stopping process at empty intersection or too big a jump")
                 k = max_it
                 add_final = False

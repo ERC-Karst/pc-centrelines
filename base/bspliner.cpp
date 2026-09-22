@@ -5,7 +5,7 @@
 // Approximate a polyline by a B-spline
 //
 
-#include <Mathematics/BSplineCurveFit.h>
+#include "BSplineCurveFit.h"
 
 #include <cmath>
 #include <iostream>

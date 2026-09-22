@@ -3,7 +3,7 @@
 #
 
 CXXFLAGS += -IGeometricTools/GTE
-CXXFLAGS += -Istl_reader -Itinyply/source
+CXXFLAGS += -Istl_reader/include/stl_reader -Itinyply/source
 CXXFLAGS += -O2 -g -Wall --std=c++20
 
 all: voxelize bspliner

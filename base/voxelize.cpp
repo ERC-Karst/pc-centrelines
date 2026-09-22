@@ -11,10 +11,10 @@
 #include <cmath>
 #include <iostream>
 #include <set>
-#include <stl_reader.h>
+#include "stl_reader.h"
 
 #define TINYPLY_IMPLEMENTATION
-#include <tinyply.h>
+#include "tinyply.h"
 
 struct Point {
 	float x, y, z;

@@ -546,6 +546,21 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                         print(f"possibly too big a jump! {d:.5f}")
 
                 d = np.linalg.norm(P_end-P) # check the distance threshold
+
+                # check also that we are not doubling back... 
+                
+                if len(ct) >=2:
+                    dplane_previous = (ct[:-1]-P) @ nP
+                    if np.any(dplane_previous < 0.25*ds):
+                        print("dplane_previous", dplane_previous)
+
+                        d_previous = np.linalg.norm(ct[:-1]-P, axis=1)
+                        if np.any(d_previous < 0.25*ds):
+                            print("d_previous", d_previous)
+
+                            _continue = False
+                            print("seems we're doubling back to an known point.") 
+
                 if d < epsilon:
                     _continue = False
 

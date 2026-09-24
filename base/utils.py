@@ -6,7 +6,7 @@ from sklearn.neighbors import NearestNeighbors
 import laspy
 import networkx as nx
 from scipy.stats import gaussian_kde
-from scipy.optimize import curve_fit
+from scipy.interpolate import interp1d
 from matplotlib.cm import tab20b
 import mistree as mist
 
@@ -192,6 +192,106 @@ def return_centreline_parametrisation(centreline, dt=1):
     
     return interpolated_centreline, ti[1:-1], normed_vectors
 
+
+
+# a convenience function to resample a centreline using a 1d interpolator. 
+def parametrise_ct(ct : np.ndarray, eps: float)-> np.ndarray:
+    """reparametrises a centreline using linear interpolation for upsampling and downsampling"""
+
+    t = np.zeros(ct.shape[0])
+
+    segments = np.linalg.norm(np.diff(ct, axis = 0), axis = 1)
+    
+    cumsum = np.cumsum(segments)
+
+    L = np.max(cumsum)
+    t[1:] =  cumsum / L
+
+    x_interp  = interp1d(t, ct[:,  0])
+    y_interp  = interp1d(t, ct[:,  1])
+    if ct.shape[1] == 3:
+        z_interp  = interp1d(t, ct[:,  2])
+
+    # check if the interpolation is a downsampling or upsampling. 
+    N  = len(ct) 
+    if L/eps < N:
+        # then we are downsampling. 
+        ti = np.linspace(0,1, int(np.ceil(L/eps))) 
+
+    else: 
+        # now we work out the reparametrisation so that the average segment length is close to the required delta.
+        ti = []
+        t0 = 0
+        for segment in segments:
+            r = np.ceil(segment/eps)
+            increments =  [t0+ i * segment / r for i in np.arange(0, r)]
+            for increment in increments:
+                ti.append(increment / L)
+            t0 +=segment
+        
+        ti.append(1)
+            
+    if ct.shape[1] == 3:
+        return np.vstack([x_interp(ti), y_interp(ti), z_interp(ti)]).T
+    else:
+        return np.vstack([x_interp(ti), y_interp(ti)]).T
+
+def trim_adjust(ct1 : np.ndarray, ct2 : np.ndarray, eps : float) -> tuple:
+    # we essentially reparametrise the lines to begin as close as possible. 
+
+    ct1_ct2_nearest = np.argmin(np.linalg.norm(ct1[0] - ct2[[0, -1], :], axis =1))
+    # this is only zero, or one. 
+    flip = 1
+    if ct1_ct2_nearest ==1:
+        flip = -1
+
+    ct1_parametrised = parametrise_ct(ct1, eps)
+    ct2_parametrised = parametrise_ct(ct2[::flip], eps)
+
+    # check whether a point in ct1 is closer to ct2_0. if so, we have to trim until there.
+    idx_ct1_1 = np.argmin(np.linalg.norm(ct2[::flip][0] - ct1_parametrised,  axis=1))
+    idx_ct2_1 = np.argmin(np.linalg.norm(ct1[0] - ct2_parametrised,  axis=1))
+
+    idx_ct1_2 = np.argmin(np.linalg.norm(ct2[::flip][-1] - ct1_parametrised,  axis=1))
+    idx_ct2_2 = np.argmin(np.linalg.norm(ct1[-1] - ct2_parametrised,  axis=1))
+
+    P = ct1_parametrised[idx_ct1_1:idx_ct1_2]
+    Q = ct2_parametrised[idx_ct2_1:idx_ct2_2]
+
+
+    # projection of a point on a segment.
+    # si qprime - Q[1] @ qprim - Q[0] = -1, alors, bon, Q[0] = qprime
+    # sinon, P[0] = pprime
+    # we check now which way this should go. 
+    Nq = (Q[1] - Q[0]) / np.linalg.norm(Q[1] - Q[0])
+    pq = (P[0] - Q[0])
+    Nqprime = np.dot(Nq, pq)*Nq
+    qprime = Q[0]+ Nqprime
+    
+    if Nqprime @ (Q[1] - qprime) > 0:
+        Q[0] = qprime
+    else:
+        Np = (P[1] - P[0]) / np.linalg.norm(P[1] - P[0])
+        qp = (Q[0] - P[0])
+        Npprime = np.dot(Np, qp)*Np
+        pprime = P[0]+ Npprime
+        P[0] = pprime
+
+    Nq = (Q[-2] - Q[-1]) / np.linalg.norm(Q[-2] - Q[-1])
+    pq = (P[-1] - Q[-1])
+    Nqprime = np.dot(Nq, pq)*Nq
+    qprime = Q[-1]+Nqprime
+    if Nqprime @ (Q[-2] - qprime) > 0:
+        Q[-1] = qprime
+    else:
+        Np = (P[-2] - P[-1]) / np.linalg.norm(P[-2] - P[-1])
+        qp = (Q[-1] - P[-1])
+        Npprime = np.dot(Np, qp)*Np
+        pprime = P[-1]+ Npprime
+        P[-1] = pprime
+
+    return P, Q
+
 ## Mesh intersections 
 
 
@@ -357,7 +457,7 @@ def find_neighbours_with_knn(theMesh, n_neighbors=12):
     
     return adjacent_triangles
 
-def adjust_plane(ring):
+def adjust_plane(ring : np.ndarray) -> tuple:
     P = np.mean(ring, axis=0)
 
     X = ring - P
@@ -366,9 +466,6 @@ def adjust_plane(ring):
     # eigen value decomposition
     eigenvalues, eigenvectors = np.linalg.eig(Sigma)
     nP= eigenvectors.T[np.argmin(eigenvalues)]
-
-    # check that the distance to best fit plane is indeed correct (within tolerance). 
-    #assert np.allclose(np.abs(X @ nP), 0, atol= 2e-1) 
 
     return P, nP
 
@@ -480,37 +577,6 @@ def return_rings(mesh, adjacent_triangles)-> dict:
         c+=1
 
     return rings
-    
-    # # select second largest
-    # cc1 = np.argmax(cc_sizes)    
-    # # find the two largest openings. 
-    # ring1 = edge_centroids[dbscan_labels == cc0]
-    # ring2 = edge_centroids[dbscan_labels == cc1]
-
-    # print(f"found ring 2 with {len(ring2)} points.")
-
-    # P1, nP1 = adjust_plane(ring1)
-    # P2, nP2 = adjust_plane(ring2)
-
-    # # reorient the normals towards the conduit. 
-    # # check whether scalar product between normal solution and centre of mass of neighbouring points
-    # # is positive or negative, and flip accordingly. 
-
-
-    # for P, nP in zip(Pi), (nPi):
-    #     # subsample nearby points.
-    #     within_range = np.linalg.norm(mesh.centroids - P, axis =1) < 10
-    #     within_plane = np.abs((mesh.centroids - P) @ nP) < 2
-
-    #     neighbours = mesh.centroids[np.logical_and(within_plane, within_range)]
-    #     com_neighbours = np.mean(neighbours, axis =0)
-
-    #     # check scalar product sign, flip normal if necessary. 
-    #     if (com_neighbours - P) @ nP < 0:
-    #         nP *= -1
-
-
-    # return dict(ring1=ring1, P1=P1, nP1=nP1, ring2=ring2,  P2=P2, nP2=nP2)
 
 def equivalent_dh(dhi, li):
     # harmonic mean along the section 
@@ -766,15 +832,15 @@ def analyse_autocovariance(signal, flags, maxlag, dt):
     return x_nan, v_nan, autocov_nan, acf_nan, tau_int_v, j_max
 
 
-def plot_autocovariance(ax1, ax2, signal, flags, maxlag, dt, colormap, attrn= 0, verbose= False):
+def plot_autocovariance(ax1, ax2, signal, flags, maxlag, dt, colormap, attrn= 0):
     _, _, _, acf_nan, tau_int_v, j_max = analyse_autocovariance(signal, flags, maxlag, dt)
 
     ax1.semilogx(np.arange(1, maxlag)*dt, acf_nan[1:], 
-                 label = f"$\hat{{\hat{{\\tau}}}}_{{int}}= {tau_int_v[j_max]*dt:.1f}$ m", 
+                 label = f"$\\hat{{\\hat{{\\tau}}}}_{{int}}= {tau_int_v[j_max]*dt:.1f}$ m", 
                  color = colormap(4*attrn))
 
-    ax1.set_xlabel("lag $\mid t\Delta t \mid$ [m]")
-    ax1.set_ylabel("$\hat{\hat{\\rho}}$(t)")
+    ax1.set_xlabel("lag $\\mid t\\Delta t \\mid$ [m]")
+    ax1.set_ylabel("$\\hat{\\hat{\\rho}}$(t)")
     ax1.legend(fontsize=8, loc="lower left")
     ax1.axvline(tau_int_v[j_max]*dt, zorder = -10, ls = "--", color = "firebrick")
 
@@ -782,43 +848,8 @@ def plot_autocovariance(ax1, ax2, signal, flags, maxlag, dt, colormap, attrn= 0,
     ax2.semilogx(np.arange(1, maxlag)*dt, C*tau_int_v[1:])
     ax2.semilogx(np.arange(1, maxlag)*dt, range(1, maxlag), color = "k", ls ="--")
     ax2.set_ylim(0, 1.1*np.max(C*tau_int_v[1:]))
-    ax2.set_ylabel("$c \\times \hat{\hat{\\tau_{{int}}}}$(M)")
+    ax2.set_ylabel("$c \\times \\hat{\\hat{\\tau_{{int}}}}$(M)")
     ax2.set_xlabel("window size M")
-
-
-# def plot_autocovariance(ax, x, maxlag, dt, colormap, attrn= 0, verbose = False):
-#     # fitting the exponential. 
-
-#     def exponential_model(x, a, b):
-#         return a * np.exp(-x/b)
-    
-#     lags = np.arange(1, maxlag+1)*dt
-
-#     # deal with nans by filling. 
-#     for c, elem in enumerate(x):
-#         if np.isnan(elem):
-#             x[c] = x[c-1]
-#     # cast to correct floating point precision.
-#     x = x.astype(np.float64)
-
-#     autocov = autocovariance(x, maxlag)
-
-#     if verbose == True:
-#         print(x)
-#         print(autocov)
-
-#     popt, pcov = curve_fit(exponential_model, lags, autocov, p0=[15, 10])
-
-    
-#     ax.plot(np.arange(1, maxlag+1)*dt, autocov, marker="o", markersize = 4, color = colormap(attrn*4))
-#     ax.plot(np.arange(1, maxlag+1)*dt, exponential_model(np.arange(1, maxlag+1)*dt, *popt), color = "k", ls = "--", label ="exponential fit")
-#     ax.set_xlabel("lag distance $j$ [m]")
-#     ax.set_ylabel("Autocovariance function $\hat{K}^{XX}_j$")
-#     ax.set_xscale("log")
-#     ax.axvline(popt[1]*dt, color ="firebrick")
-#     #ax.text(1, 0, f"exp. autocorrelation distance:\n {popt[1]:.2f} sampling intervals", fontsize = 8)
-
-#     return ax, popt[1]
 
 
 def plot_autocorrelation_coefficients(ax, x, maxlag, dt, colormap, attrn= 0):
@@ -837,7 +868,7 @@ def plot_autocorrelation_coefficients(ax, x, maxlag, dt, colormap, attrn= 0):
     ax.scatter(np.arange(1, maxlag+1)*dt,acf+norm.ppf(0.025)*cb, color=colormap(4*attrn+2), s= 2)
     ax.scatter(np.arange(1, maxlag+1)*dt,acf+norm.ppf(0.975)*cb, color=colormap(4*attrn+2), s= 2)
 
-    ax.set_ylabel("Autocorrelation function $\hat{A}^{XX}_j$")
+    ax.set_ylabel("Autocorrelation function $\\hat{A}^{XX}_j$")
 
     ax.axhline(0, ls = "-", color = "k")
 

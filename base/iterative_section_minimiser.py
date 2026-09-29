@@ -552,7 +552,6 @@ def iterative_pathfinder(mesh_data, P_start, P_end, nP0,
                 if len(ct) >=2:
                     dplane_previous = (ct[:-1]-P) @ nP
                     if np.any(dplane_previous < 0.25*ds):
-                        print("dplane_previous", dplane_previous)
 
                         d_previous = np.linalg.norm(ct[:-1]-P, axis=1)
                         if np.any(d_previous < 0.25*ds):

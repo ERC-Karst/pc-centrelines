@@ -246,12 +246,16 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
     Implementation of 'Möller, T., & Hughes, J. F. (1999). Efficiently Building a Matrix to Rotate One Vector to Another. 
     Journal of Graphics Tools, 4(4), 1–4. doi:10.1080/10867651.1999.10487509'
     """
-    print("troubleshooting:  ", t, f, np.linalg.norm(t), np.linalg.norm(f))
+
+    if verbose == True:
+        print("troubleshooting:  ", t, f, np.linalg.norm(t), np.linalg.norm(f))
+
     t = t.astype(float) / np.linalg.norm(t)
     f = f.astype(float) / np.linalg.norm(f)
 
     # check that the vectors are not already near parallel. 
     if np.allclose(np.abs(np.dot(f, t)), 1, 0.01):
+
         if verbose == True:
             print("vectors seem to be near parallel, using reflections to compute rotation.")
 
@@ -268,7 +272,7 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
         elif cond_z:
             p = np.array([0, 0, 1])
         else:
-            p = np.array([1, 0, 0])
+            p = np.array([0, 0, 0])
 
         
         # Compute reflections using Householder matrices
@@ -298,7 +302,7 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
             print("Rotation unsuccessful")
         return R
     
-def to2D(points3d, nP, returnTransform=False):
+def to2D(points3d, nP, returnTransform=False, verbose = False):
     if np.sign(nP[2]) != 0:
         d = nP * np.sign(nP[2])
     else:
@@ -310,11 +314,11 @@ def to2D(points3d, nP, returnTransform=False):
     # define a normal vector
     d2 = np.array([0, 1, 0])
     # first rotation 
-    R1 =  vec2vec_rotation(d, d1, verbose=False)
+    R1 =  vec2vec_rotation(d, d1, verbose=verbose)
     pp = points3d - np.mean(points3d, axis=0)
     pp_vertical = R1 @ pp.T
     # second rotation
-    R2 = vec2vec_rotation(d1, d2)
+    R2 = vec2vec_rotation(d1, d2, verbose=verbose)
     pp_rotated = R2 @ pp_vertical
     # only assign the x and y direction for the 2d case
     points2d = pp_rotated.T[:, [0, 2]]
@@ -522,77 +526,77 @@ DESCRIPTOR_MAP = {"area": {"name": "area",
                             "bounds": [0, None]},
                 "max_chord_length": {"name": "max chord length", 
                             "unit": "m", 
-                            "equation": "$max\left\Vert x_1 - x_2 \right\Vert x_1 \in p, x_2 \in p, x1 \neq x_2$", 
+                            "equation": "$max\\left\\Vert x_1 - x_2 \\right\\Vert x_1 \\in p, x_2 \\in p, x1 \\neq x_2$", 
                             "abbr": "L", "bounds": [0, None]},
                 "rmin": {"name": "r min", 
                             "unit": "m", 
-                            "equation": "$min\left\Vert x - c \right\Vert \mid x \in p$", 
+                            "equation": "$min\\left\\Vert x - c \\right\\Vert \\mid x \\in p$", 
                             "abbr": "$r_{min}$",
                             "bounds": [0, None]},
                 "rmax": {"name": "r max", 
                             "unit": "m", 
-                            "equation": "$max\left\Vert x - c \right\Vert \mid x \in p$", 
+                            "equation": "$max\\left\\Vert x - c \\right\\Vert \\mid x \\in p$", 
                             "abbr": "$r_{max}$",
                             "bounds": [0, None]},
                 "r_average": {"name": "r average", 
                             "unit": "m", 
-                            "equation": "$\frac{1}{card(p)} \sum_{x \in p}{\left\Vert x - c \right\Vert} $", 
+                            "equation": "$\frac{1}{card(p)} \\sum_{x \\in p}{\\left\\Vert x - c \\right\\Vert} $", 
                             "abbr": "$r_{ave}$",
                             "bounds": [0, None]},
                 "hydraulic_diameter": {"name": "hydraulic diameter", 
                             "unit": "m", 
-                             "equation": "$\frac{4A}{P}$", 
+                             "equation": "$\\frac{4A}{P}$", 
                             "abbr": "$D_{H}$",
                             "bounds": [0, None]},
                 "circularity": {"name": "circularity", 
                            "unit": "", 
-                           "equation": "$\frac{r_{min}}{r_{max}}$", 
-                           "abbr": "$\gamma_1$",
+                           "equation": "$\\frac{r_{min}}{r_{max}}$", 
+                           "abbr": "$\\gamma_1$",
                            "bounds": [0, 1]},
                 "circularity2": {"name": "circularity 2", 
                            "unit": "", 
-                           "equation": "$\frac{P^2}{A}$", 
-                           "abbr": "$\gamma_2$", 
+                           "equation": "$\\frac{P^2}{A}$", 
+                           "abbr": "$\\gamma_2$", 
                            "bounds": [4*np.pi, None]},
                 "gravelius_compactness": {"name": "gravelius compactness coefficient", 
                            "unit": "", 
-                           "equation": "$\frac{P}{2 \sqrt{\pi A}}$", 
-                           "abbr": "$\gamma_c$", 
+                           "equation": "$\\frac{P}{2 \\sqrt{\\pi A}}$", 
+                           "abbr": "$\\gamma_c$", 
                            "bounds": [1,None]},
                 "circularity3": {"name": "circularity 3", 
                            "unit": "", 
-                           "equation": "$\frac{r_{max} - r_{min}}{r_{max}}$", 
-                           "abbr": "$\gamma_3$",
+                           "equation": "$\\frac{r_{max} - r_{min}}{r_{max}}$", 
+                           "abbr": "$\\gamma_3$",
                            "bounds": [0, None]},
                 "deviation_from_inscribed_disk": {"name": "deviation from inscribed disk", 
                            "unit": "", 
-                           "equation": "$\frac{\pi r_{min}^2}{A}$", 
-                           "abbr": "$\delta_{inscribed}$",
+                           "equation": "$\\frac{\\pi r_{min}^2}{A}$", 
+                           "abbr": "$\\delta_{inscribed}$",
                            "bounds": [0, 1]},
                 "deviation_from_circumscribed_disk": {"name": "deviation from inscribed disk", 
                            "unit": "", 
-                           "equation": "$\frac{\pi r_{max}^2}{A}$", 
-                           "abbr": "$\delta_{circumscribed}$",
+                           "equation": "$\\frac{\\pi r_{max}^2}{A}$", 
+                           "abbr": "$\\delta_{circumscribed}$",
                            "bounds": [1, None]},
                  "elongation": {"name": "elongation", 
                             "unit": "", 
-                            "equation": "$\frac{4}{\pi} \frac{A}{r_{ave}^2}$", 
+                            "equation": "$\\frac{4}{\\pi} \\frac{A}{r_{ave}^2}$", 
                             "abbr": "$E$", 
                             "bounds": [0, 4]},
                 "isoperimetric_deficiency": {"name": "isoperimetric quotient", 
                             "unit": "", 
-                            "equation": "$\frac{4 \pi A}{p^2}$", 
+                            "equation": "$\\frac{4 \\pi A}{p^2}$", 
                             "abbr": "$d_{iso}$",
                             "bounds": [0, 1]},
                 "morton_spreading_index": {"name": "Morton spreading index", 
                             "unit": "", 
-                            "equation": "$\frac{4}{\pi} \frac{A}{L^2}$", 
-                            "abbr": "$\gamma_{M}$",
+                            "equation": "$\\frac{4}{\\pi} \\frac{A}{L^2}$", 
+                            "abbr": "$\\gamma_{M}$",
                             "bounds": [0, 1]},
                 "circular_variance": {"name": "circular variance", 
                             "unit": "", 
-                            "equation": "$\frac{\sum_{x \in \Omega}{(\left \Vert x - c \right \Vert -r_{ave})^2}}{Ar_{ave}^2}$", 
-                            "abbr": "$\sigma^2_{circ}$", 
+                            "equation": "$\\frac{\\sum_{x \\in \\Omega}{(\\left \\Vert x - c \\right \\Vert -r_{ave})^2}}{Ar_{ave}^2}$", 
+                            "abbr": "$\\sigma^2_{circ}$", 
                             "bounds": [0, None]},
                 "ellipse_aspect_ratio": {"name": "aspect ratio of ellipse axes", 
                             "unit": " ", 
@@ -606,7 +610,7 @@ DESCRIPTOR_MAP = {"area": {"name": "area",
                             "bounds": [0, np.pi]},
                 "solidity": {"name": "convex hull solidity", 
                             "unit": " ", 
-                            "equation": "$card(x_1) / card(x_2) \mid x_1 \in \Omega, x_2 \in \mathcal{C}(\Omega)$", 
+                            "equation": "$card(x_1) / card(x_2) \\mid x_1 \\in \\Omega, x_2 \\in \\mathcal{C}(\\Omega)$", 
                             "abbr": "$S$",
                             "bounds": [0, 1]}
 }

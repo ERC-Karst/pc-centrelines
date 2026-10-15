@@ -1,10 +1,5 @@
 import numpy as np
-
-try:
-    import mistree as mist
-except ModuleNotFoundError:
-    import mistree_pp as mist
-    
+import mistree as mist
 import networkx as nx
 
 from itertools import combinations

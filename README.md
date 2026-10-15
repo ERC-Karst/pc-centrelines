@@ -17,7 +17,7 @@ We provide several methods for traversing a cave conduit from inlet to outlet, r
 Open e.g. the Git Bash App and type: 
 
 ```
-https://github.com/ERC-Karst/pc-centrelines.git
+git clone https://github.com/ERC-Karst/pc-centrelines.git
 ```
 
 ### Setting up the pc-centrelines environment

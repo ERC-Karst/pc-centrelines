@@ -15,8 +15,8 @@ from scipy.spatial import KDTree
 import networkx as nx
 import ezdxf
 
-import spline
-import simplify
+import base.centreliner.spline as spline
+import base.centreliner.simplify as simplify
 from os.path import normpath
 
 
@@ -46,7 +46,7 @@ def parsePosition(s: str) -> np.ndarray:
     return np.array([round(x * 1000), round(y * 1000), round(z * 1000)])
 
 
-class Centerliner:
+class Centreliner:
 
     def __init__(self, vxlName: str, delta: int):
         self.G = nx.Graph()

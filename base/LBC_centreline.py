@@ -1,20 +1,20 @@
 import numpy as np
+
 try:
     import mistree as mist
 except ModuleNotFoundError:
     import mistree_pp as mist
     
 import networkx as nx
-from itertools import permutations
 
-from os.path import exists
 from itertools import combinations
-from stl import Mesh
 from time import time
-from utils import find_neighbours_with_knn, array_to_o3d, spatially_downsample, return_largest_component, return_rings
+from utils import array_to_o3d, return_largest_component
+
 from pc_skeletor import LBC
 
 __all__ = ['return_LBC_centreline']
+
 
 CT_ARGS = dict(keep_adjacent_triangles=True, centreline_down_sample= 0.5)
 LBC_ARGS = dict(init_attraction = 0.5, init_contraction = 0.5, down_sample = 0.5)
@@ -121,48 +121,3 @@ def return_LBC_centreline(meshdata,
                 mst_graph = fullG,
                 centreline= best_path,
                 skeleton_cloud_size=np.asarray(lbc.contracted_point_cloud.points).shape[0])
-    
-    # # find the shortest path linking node extremities 
-    # # definition of extremities (from initial guesses and normals using the mesh. )
-    # rings = return_rings(meshdata, adjacent_triangles)
-    
-    # # array view of coordinates and indices of the graph.
-    # indices = np.arange(0, fullG.number_of_nodes())
-    # coords = np.array([fullG.nodes[idx]["pos"] for idx in indices])
-
-    # # print out the number of rings founds. 
-    # print(f"there were {len(rings)} rings found")
-
-    # ring_centres = []
-    # for key, value in rings.items():
-    #     if "P" in key and "nP" not in key:
-    #         ring_centres.append(value)
-
-    # max_dist = 0
-    # thepair = None
-    
-    # for ring_pair in permutations(ring_centres, 2):
-    #     start_node = indices[np.argmin(np.linalg.norm(ring_pair[0] - coords, axis =1))]
-    #     end_node = indices[np.argmin(np.linalg.norm(ring_pair[1] - coords, axis =1))]
-    #     # the shortest path linking our two extremities.
-
-
-    #     centreline_node_path = nx.shortest_path(fullG, start_node, end_node)
-
-    #     thisdist = len(centreline_node_path)
-    #     if thisdist > max_dist:
-    #         thepair = ring_pair
-    #         max_dist = thisdist
-
-    
-    # start_node = indices[np.argmin(np.linalg.norm(thepair[0] - coords, axis =1))]
-    # end_node = indices[np.argmin(np.linalg.norm(thepair[1] - coords, axis =1))]
-    # # the shortest path linking our two extremities.
-
-    # centreline_node_path = nx.shortest_path(fullG, start_node, end_node)
-    # print(f"computed the longest of all shortest path permutations in  {time() - s:.4f}s")
-    # s = time()
-
-    # centreline = np.vstack([thepair[0], coords[centreline_node_path], thepair[1]])
-
-    # return dict(centreline=centreline, rings=rings)

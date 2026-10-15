@@ -7,9 +7,3 @@
 [submodule "base/GeometricTools"]
 	path = base/GeometricTools
 	url = https://github.com/davideberly/GeometricTools.git
-[submodule "base/pc-skeletor"]
-	path = base/pc-skeletor
-	url = https://github.com/meyerls/pc-skeletor.git
-[submodule "base/karst_conduits"]
-	path = base/karst_conduits
-	url = https://github.com/ERC-Karst/karst_conduits.git

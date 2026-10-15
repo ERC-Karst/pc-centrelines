@@ -27,16 +27,23 @@ The [environment.yml](environment.yml) file contains the necessary python packag
 To set-up the python environment with conda or miniconda, you may first navigate to ``pc-centreline`` repository you may run:
 
 ```
-conda create --file environment.yml
+conda env create --file=environment.yml
 ```
 See: [Managing conda environments](https://docs.conda.io/projects/conda/en/stable/user-guide/tasks/manage-environments.html) for details.
 
+Activate the pc-centrelines environment by entering: 
+
+```
+conda activate pc-centrelines
+```
+
 ### Voxeliser and B-spliner
 
-These executables are written in C++ need to be compiled with e.g. gcc
+These executables are written in C++ need to be compiled with a C++ compiler, e.g. gcc
 
-These also call on a series of submodules for handling meshes, pointclouds and basic geometric tools (see: [.gitmodules](.gitmodules))
+These also call on a series of C++ libraries for handling meshes, pointclouds and basic geometric tools now located in clibs.
 
+Navigate to ```base/centreliner``` and run ````make ``` to compile the following executables: ``voxelize.exe`` and ``bspliner.exe`` 
 
 ## Example codes
 

@@ -1,9 +1,0 @@
-[submodule "base/stl_reader"]
-	path = base/stl_reader
-	url = https://github.com/sreiter/stl_reader.git
-[submodule "base/tinyply"]
-	path = base/tinyply
-	url = https://github.com/ddiakopoulos/tinyply.git
-[submodule "base/GeometricTools"]
-	path = base/GeometricTools
-	url = https://github.com/davideberly/GeometricTools.git

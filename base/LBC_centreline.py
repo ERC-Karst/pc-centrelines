@@ -11,7 +11,7 @@ from itertools import combinations
 from time import time
 from utils import array_to_o3d, return_largest_component
 
-from pc_skeletor import LBC
+from laplacian import LBC
 
 __all__ = ['return_LBC_centreline']
 

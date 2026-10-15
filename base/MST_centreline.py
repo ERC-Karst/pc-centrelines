@@ -4,7 +4,6 @@ from os.path import normpath, exists, split, abspath
 from subprocess import check_output
 
 from stl import mesh
-from utils import find_neighbours_with_knn, return_rings
 from centreline import *
 from centreline import simplify, spline
 
@@ -41,9 +40,14 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
     source1 = c.findNearestNode(P1*1000, verbose = verbose)
     target1 = c.findNearestNode(P2*1000, verbose = verbose)
+    print(source1,P1*1000,P2*1000, target1)
 
 
     p = c.computeCenterline(source1, target1)
+
+    print("p",  type(p))
+    print("c.delta", type(c.delta))
+
 
     # for demo purposes, write the edges of the maximum spanning tree used. 
     c.writeMSTEdges(f"../temp//{id}_{conduit_name}//mst//{conduit_name}_MST_edges.xyz")

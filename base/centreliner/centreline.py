@@ -311,7 +311,7 @@ def main():
     voxels = f"{dir}/voxels.vxl"
     runModule("voxelize", [str(delta), args.conduit, voxels])
 
-    c = Centerliner(voxels, delta)
+    c = Centreliner(voxels, delta)
     c.addEdges()
 
     # to look at the grid and clearance

@@ -55,6 +55,7 @@ def levi_civita_tensor(n):
         arr[x]=int(np.linalg.det(mat))
         
     return arr 
+
 def mesh_intersect(theMesh, P: np.ndarray, nP : np.ndarray, verbose= False) -> tuple:
     """Computes the intersection between a mesh and plane defined by a point and normal vector.
     Returns a tuple containing, among others: the normal vector used, the list of mesh vertices M, the list of segment midpoints M1M2,
@@ -618,3 +619,34 @@ def iterative_pathfinder(mesh_data,
               "logs": logs}
     
     return result
+
+
+def get_progress_logs(result) -> np.ndarray:
+    """returns a progress log in the form of a 2D array
+    for each row containing: 
+         - the vector W, 
+         - the area, 
+         - the ratio thereof, 
+         - the index of  kth section
+         - the index of the jth iteration
+         """
+    logs = result["logs"]
+    
+    iteration_progress = []
+    steps = []
+    k = 0
+    j=0
+    for log in logs:
+        
+        steps.append(k)
+        for iter in log:
+            
+            iteration_progress.append((np.linalg.norm(iter[3]), 
+                                    iter[4], 
+                                    np.linalg.norm(iter[3]) / iter[4], 
+                                    k, 
+                                    j))
+            j+=1
+        k+=1
+
+    return np.array(iteration_progress)

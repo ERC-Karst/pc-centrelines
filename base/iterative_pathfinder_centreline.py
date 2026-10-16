@@ -10,7 +10,7 @@ from time import time
 import tqdm as tqdm
 import warnings 
 
-__all__ = ['return_iterative_centreline']
+__all__ = ['iterative_pathfinder']
 
 # analytical solution for a cylinder. 
 

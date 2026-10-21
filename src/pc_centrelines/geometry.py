@@ -16,7 +16,7 @@ from scipy.spatial import ConvexHull
 from sklearn.metrics import pairwise_distances
 from shapely import Polygon, LineString, get_coordinates
 from shapely.ops import split
-
+import pytest
 
 def compute_ngon_perimeter(a: np.ndarray) -> float:
     """compute_ngon_perimeter calculates the perimeter of a closed polygon 
@@ -30,6 +30,14 @@ def compute_ngon_perimeter(a: np.ndarray) -> float:
 
     return np.sqrt(np.sum((np.roll(a,1, axis = 0) - a)**2, axis = 1)).sum()
 
+a = np.array(([0, 0],[0, 1], [1, 1], [1, 0]))
+b = np.array(([0, 0],[1, 0], [1, 1], [0, 1]))
+c = np.array([np.cos(np.linspace(-np.pi, np.pi, 2000)), np.sin(np.linspace(-np.pi, np.pi, 2000))]).T
+
+
+@pytest.mark.parametrize("test_input,expected", [(a, 4), (b, 4), (c, 2*np.pi)])
+def test_compute_ngon_perimeter(test_input, expected):
+    assert compute_ngon_perimeter(test_input) == pytest.approx(expected, abs=1e-5)
 
 def compute_ngon_area(a: np.ndarray) -> float:
     """compute_ngon_area calculates the area of a closed polygon whose vertex i coordinates are given by x[i] and y[i]
@@ -42,6 +50,10 @@ def compute_ngon_area(a: np.ndarray) -> float:
 
     x, y = a.T
     return 0.5*np.abs(np.dot(x,np.roll(y,1))-np.dot(y,np.roll(x,1)))
+
+@pytest.mark.parametrize("test_input,expected", [(a, 1), (b, 1), (c, np.pi)])
+def test_compute_ngon_area(test_input, expected):
+    assert compute_ngon_area(test_input) == pytest.approx(expected, abs=1e-5)
 
 def compute_ngon_dh(a: float, p: float) -> float:
     """
@@ -64,6 +76,12 @@ def compute_ngon_dh(a: float, p: float) -> float:
     
     return 4 * a / p
 
+@pytest.mark.parametrize("test_input,expected", [(a, 1), (b, 1), (c, 2)])
+def test_compute_ngon_dh(test_input, expected):
+    A = compute_ngon_area(test_input)
+    P = compute_ngon_perimeter(test_input)
+
+    assert compute_ngon_dh(A, P) == pytest.approx(expected, abs=1e-5)
 
 def compute_convex_hull(a: np.ndarray) -> np.ndarray:
     """
@@ -89,8 +107,14 @@ def compute_convex_hull(a: np.ndarray) -> np.ndarray:
 
     return hull_vertices
 
+d = np.vstack((b, [0.5,0.5]))
 
-def make_ellipse(a: float, b: float, theta: float) -> np.ndarray:
+@pytest.mark.parametrize("test_input,expected", [(d, b)])
+def test_compute_convex_hull(test_input, expected):
+    assert compute_convex_hull(test_input) == pytest.approx(expected, abs=1e-5)
+
+
+def make_ellipse(a: float, b: float, theta: float, npoints = 500) -> np.ndarray:
     """
     calculate the cartesian coordinates of an ellipse centered on [0, 0]
     whose semi-axes are a and b respectively, rotated by angle theta
@@ -111,7 +135,7 @@ def make_ellipse(a: float, b: float, theta: float) -> np.ndarray:
         hydraulic diameter -> float : the area in input units squared 
     """
     # define ellipse parametrically
-    t = np.linspace(-np.pi, np.pi, 500)
+    t = np.linspace(-np.pi, np.pi, npoints)
     # calculate coordinates before rotation
     xy = np.vstack([a*np.cos(t), b*np.sin(t)]).T
     #rotation matrix
@@ -120,6 +144,10 @@ def make_ellipse(a: float, b: float, theta: float) -> np.ndarray:
     # return rotated ellipse. 
     return np.dot(xy, rot)
 
+@pytest.mark.parametrize("test_input,expected", [((1,1,0), np.pi), ((1,2, np.pi), 2*np.pi), ((2,1, np.pi/2), 2*np.pi)])
+def test_make_ellipse(test_input, expected):
+    ellipse = make_ellipse(*test_input, npoints = 4000)
+    assert compute_ngon_area(ellipse) == pytest.approx(expected, abs = 1e-5)
 
 
 def centre_of_gravity(ngon: np.ndarray, verbose: bool = False) -> np.ndarray:
@@ -173,6 +201,9 @@ def centre_of_gravity(ngon: np.ndarray, verbose: bool = False) -> np.ndarray:
 
     return cog
 
+@pytest.mark.parametrize("test_input,expected", [(a, [0.5,0.5]), (b, [0.5,0.5]), (c, [0,0])])
+def test_centre_of_gravity(test_input, expected):
+    assert centre_of_gravity(test_input) == pytest.approx(expected, abs = 1e-5)
 
 def rotate(u, theta):
     """

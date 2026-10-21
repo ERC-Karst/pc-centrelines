@@ -62,13 +62,6 @@ def test_ellipse(test_input, expected):
     assert (ellipse_area, aspect_ratio) == pytest.approx(expected, abs=1e-3)
 
 
-@pytest.mark.parametrize("test_input,expected", [(a, (1, 1)), (b, (4, 1)), (c, (9, 1)), (d, (np.pi, 1)), (e, (2*np.pi, 2)), (f, (2*np.pi, 2))])
-def test_maxpairwise_distance(test_input, expected):
-    _, ellipse_area, _, aspect_ratio, _, _, _ = pcc.geometry.fit_ellipse(
-        test_input, npoints=4000)
-    assert (ellipse_area, aspect_ratio) == pytest.approx(expected, abs=1e-3)
-
-
 @pytest.mark.parametrize("test_input,expected", [(a, np.sqrt(2)/2), (b, np.sqrt(2)), (c, 3*np.sqrt(2)/2), (d, 1), (e, 2), (f, 2)])
 def test_rmax(test_input, expected):
     c = pcc.centre_of_gravity(test_input)

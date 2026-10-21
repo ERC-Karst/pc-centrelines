@@ -59,7 +59,8 @@ class Centreliner:
             indexVertices = 12 * nVoxels + 8
             for x, y, z in struct.iter_unpack("=iii", data[8:indexVertices]):
                 self.G.add_node((x, y, z))
-            nVertices = struct.unpack("=i", data[indexVertices:indexVertices+4])[0]
+            nVertices = struct.unpack(
+                "=i", data[indexVertices:indexVertices+4])[0]
             self.points = []
             for p in struct.iter_unpack("=iii", data[indexVertices+4:]):
                 self.points.append(np.array(p))
@@ -98,8 +99,8 @@ class Centreliner:
         self.G.add_edge(pp, qq, clearance=clearance, length=length)
 
     def findNearestNode(self, p: np.ndarray, verbose=False):
-        nearest=None
-        dist=1e38
+        nearest = None
+        dist = 1e38
 
         for n in self.G.nodes:
             q = np.array(n)
@@ -107,7 +108,7 @@ class Centreliner:
             if d < dist:
                 dist = d
                 nearest = n
-        
+
         if verbose is True:
             print(f"distance: {dist:.1f} mm\n", "nearest: ", nearest)
         return nearest
@@ -125,7 +126,7 @@ class Centreliner:
             f"Computed path in maximum spanning tree in {t2 - t1:,.1f} sec.\n"
         )
         return path
-    
+
     def writeMSTEdges(self, fname: str):
 
         with open(fname, "w") as out:
@@ -134,15 +135,15 @@ class Centreliner:
                 q = 0.001 * np.array(q)  # scale to meters
 
                 out.write(f"{p[0]} {p[1]} {p[2]} {q[0]} {q[1]} {q[2]}\n")
-    
 
     # writes a point cloud: midpoint of each edge, together with clearance as scalar field
+
     def writeEdgesMidpoints(self, fname: str):
         with open(fname, "w") as out:
             for p, q, clearance in self.G.edges.data("clearance"):
                 x = 0.0005 * (np.array(p) + np.array(q))  # scale to meters
                 out.write(f"{x[0]} {x[1]} {x[2]} {clearance}\n")
-    
+
     # writes a point cloud: midpoint of each edge, together with clearance as scalar field
     def writeEdges(self, fname: str):
         with open(fname, "w") as out:
@@ -150,7 +151,8 @@ class Centreliner:
                 p = 0.001 * np.array(p)
                 q = 0.001 * np.array(q)  # scale to meters
 
-                out.write(f"{p[0]} {p[1]} {p[2]} {q[0]} {q[1]} {q[2]} {clearance}\n")
+                out.write(
+                    f"{p[0]} {p[1]} {p[2]} {q[0]} {q[1]} {q[2]} {clearance}\n")
 
 
 class Unzigzag:
@@ -195,21 +197,21 @@ class Unzigzag:
         t1 = time.time()
         print(f"Computed shortest path in {t1 - t0:,.1f} sec.")
         return p
-    
+
     # writes a point cloud: midpoint of each edge, together with clearance as scalar field
     def writeEdgesMidpoints(self, fname: str):
         with open(fname, "w") as out:
             for p, q, clearance in self.G.edges.data("clearance"):
                 x = 0.0005 * (np.array(p) + np.array(q))  # scale to meters
                 out.write(f"{x[0]} {x[1]} {x[2]} {clearance}\n")
-    
+
     # writes a set of edges
     def writeEdges(self, fname: str):
         with open(fname, "w") as out:
             for p, q, _ in self.G.edges.data("clearance"):
                 p = 0.001 * np.array(p)
                 q = 0.001 * np.array(q)  # scale to meters
-                
+
                 out.write(f"{p[0]} {p[1]} {p[2]} {q[0]} {q[1]} {q[2]}\n")
 
 
@@ -283,11 +285,14 @@ def main():
         required=True,
     )
 
-  
-    parser.add_argument("--delta", help="voxel size in mm", type=int, required=True)
-    parser.add_argument("--source", help="source position", type=str, required=True)
-    parser.add_argument("--target", help="target position", type=str, required=True)
-    parser.add_argument("--to-dxf", help="output dxf files", type=str, required=False, default = "False")
+    parser.add_argument("--delta", help="voxel size in mm",
+                        type=int, required=True)
+    parser.add_argument("--source", help="source position",
+                        type=str, required=True)
+    parser.add_argument("--target", help="target position",
+                        type=str, required=True)
+    parser.add_argument("--to-dxf", help="output dxf files",
+                        type=str, required=False, default="False")
 
     args = parser.parse_args()
 
@@ -346,8 +351,10 @@ def main():
     writeBinPath(f"{dir}/path.bin", p1)
     writeBinPath(f"{dir}/path-simplified.bin", p2)
 
-    runModule("bspliner", [str(len(p1) / 3), f"{dir}/path.bin", f"{dir}/bspline.bin"])
-    runModule("bspliner", [str(len(p2) / 3), f"{dir}/path.bin", f"{dir}/bspline1.bin"])
+    runModule("bspliner", [str(len(p1) / 3),
+              f"{dir}/path.bin", f"{dir}/bspline.bin"])
+    runModule("bspliner", [str(len(p2) / 3),
+              f"{dir}/path.bin", f"{dir}/bspline1.bin"])
     runModule(
         "bspliner",
         [
@@ -382,7 +389,8 @@ def main():
     ps = [bezier[0] for bezier in s6]
     ps.append(s6[-1][-1])
     if to_dxf:
-        writeDXFPath(f"{dir}/centerspline-fit-simplified.dxf", ps, ezdxf.colors.YELLOW)
+        writeDXFPath(f"{dir}/centerspline-fit-simplified.dxf",
+                     ps, ezdxf.colors.YELLOW)
 
     cps = readBinPath(f"{dir}/bspline1.bin")
     s7 = spline.bspline(cps)

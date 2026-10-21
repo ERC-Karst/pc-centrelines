@@ -34,7 +34,7 @@ def simplify(
     if mid is None:
         return [start]
     p1 = simplify(delta, start, vias[:mid], vias[mid])
-    p2 = simplify(delta, vias[mid], vias[mid + 1 :], target)
+    p2 = simplify(delta, vias[mid], vias[mid + 1:], target)
     return p1 + p2
 
 

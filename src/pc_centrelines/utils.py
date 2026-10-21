@@ -689,7 +689,7 @@ def plotDescriptor(sections, descriptors, header, col, ax,
     _max = max(descriptor_ok)
     _range = _max - _min
 
-    if withmap == False:
+    if withmap is False:
 
         # Plotting along the curviline
         ax.plot(xi_ok, descriptor_ok,
@@ -727,7 +727,7 @@ def plotDescriptor(sections, descriptors, header, col, ax,
     ax_hist.plot(kde, yi, lw=3.5, c="white", zorder=2)
     ax_hist.plot(kde, yi, lw=1.5, c=tab20b((4*attr_n)), zorder=3)
 
-    if with_autocovariance == False:
+    if with_autocovariance is False:
         # Plotting the insets
         ax_inset1.plot(*sections_ok[argmax_descriptor]
                        [:, [0, 1]].T,  color=tab20b(4*attr_n))
@@ -739,7 +739,7 @@ def plotDescriptor(sections, descriptors, header, col, ax,
         ax_inset2.set_title(f"section {argmin_descriptor}")
 
         # if hydraulic diameter.
-        if (header[col] == "hydraulic_diameter") and withmap == False:
+        if (header[col] == "hydraulic_diameter") and withmap is False:
             plotDH(sections_ok, argmax_descriptor, ax_inset1)
             plotDH(sections_ok, argmin_descriptor, ax_inset2)
 
@@ -791,7 +791,7 @@ def plotDescriptor(sections, descriptors, header, col, ax,
         plot_autocovariance(ax_inset1, ax_inset2, descriptor, flags,
                             maxlag, dt, colormap=tab20b, attrn=attr_n, verbose=verbose)
 
-    if withmap == False:
+    if withmap is False:
         ax.grid(lw=0.5, ls="--")
 
         for spine in ["top", "right"]:

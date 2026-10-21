@@ -1,6 +1,6 @@
 
 *.exe
 __pycache__
-
+_caves_results/*
 data/*
 temp/*

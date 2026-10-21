@@ -16,8 +16,8 @@ import sys
 from os.path import normpath, split, abspath
 from subprocess import check_output
 
-from centreliner.centreline import *
-from centreliner.centreline import simplify, spline
+from pc_centrelines.centreliner.centreline import *
+from pc_centrelines.centreliner.centreline import simplify, spline
 
 __all__ = ['return_MST_centrelines']
 

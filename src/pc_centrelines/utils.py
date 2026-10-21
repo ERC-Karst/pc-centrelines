@@ -31,8 +31,7 @@ from stl import mesh
 from os import listdir
 from os.path import normpath, join
 
-from numba import jit
-import geometry as geom
+import pc_centrelines.geometry as geom
 
 
 def list_all_descriptors(repository : str) -> list:

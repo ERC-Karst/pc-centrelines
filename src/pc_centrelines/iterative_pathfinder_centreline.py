@@ -18,12 +18,12 @@ import open3d as o3d
 from itertools import permutations
 from scipy.sparse.csgraph import minimum_spanning_tree
 from sklearn.metrics import pairwise_distances
-from geometry import rotate
+from pc_centrelines.geometry import rotate
 from time import time
 import tqdm as tqdm
 import warnings 
 
-__all__ = ['return_iterative_centreline']
+__all__ = ['iterative_pathfinder']
 
 # analytical solution for a cylinder. 
 

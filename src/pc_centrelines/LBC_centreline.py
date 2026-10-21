@@ -17,9 +17,9 @@ import networkx as nx
 
 from itertools import combinations
 from time import time
-from utils import array_to_o3d, return_largest_component
 
-from laplacian import LBC
+from pc_centrelines.utils import array_to_o3d, return_largest_component
+from pc_centrelines.laplacian import LBC
 
 __all__ = ['return_LBC_centreline']
 

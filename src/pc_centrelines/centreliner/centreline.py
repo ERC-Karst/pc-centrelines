@@ -59,9 +59,9 @@ class Centreliner:
             indexVertices = 12 * nVoxels + 8
             for x, y, z in struct.iter_unpack("=iii", data[8:indexVertices]):
                 self.G.add_node((x, y, z))
-            nVertices = struct.unpack("=i", data[indexVertices : indexVertices + 4])[0]
+            nVertices = struct.unpack("=i", data[indexVertices:indexVertices+4])[0]
             self.points = []
-            for p in struct.iter_unpack("=iii", data[indexVertices + 4 :]):
+            for p in struct.iter_unpack("=iii", data[indexVertices+4:]):
                 self.points.append(np.array(p))
             assert len(self.points) == nVertices
         self.tree = KDTree(self.points)
@@ -97,9 +97,10 @@ class Centreliner:
         length = norm(p - q)
         self.G.add_edge(pp, qq, clearance=clearance, length=length)
 
-    def findNearestNode(self, p: np.ndarray, verbose = False):
-        nearest = None
-        dist = 1e38
+    def findNearestNode(self, p: np.ndarray, verbose=False):
+        nearest=None
+        dist=1e38
+
         for n in self.G.nodes:
             q = np.array(n)
             d = norm(p - q)
@@ -107,7 +108,7 @@ class Centreliner:
                 dist = d
                 nearest = n
         
-        if verbose == True:
+        if verbose is True:
             print(f"distance: {dist:.1f} mm\n", "nearest: ", nearest)
         return nearest
 

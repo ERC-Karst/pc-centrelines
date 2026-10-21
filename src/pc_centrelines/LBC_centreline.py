@@ -24,10 +24,11 @@ from pc_centrelines.laplacian import LBC
 __all__ = ['return_LBC_centreline']
 
 
-CT_ARGS = dict(keep_adjacent_triangles=True, centreline_down_sample= 0.5)
-LBC_ARGS = dict(init_attraction = 0.5, init_contraction = 0.5, down_sample = 0.5)
+CT_ARGS = dict(keep_adjacent_triangles=True, centreline_down_sample=0.5)
+LBC_ARGS = dict(init_attraction=0.5, init_contraction=0.5, down_sample=0.5)
 
-def return_LBC_centreline(meshdata, 
+
+def return_LBC_centreline(meshdata,
                           ct_args: dict = CT_ARGS, 
                           lbc_args: dict = LBC_ARGS) -> dict:
     
@@ -52,7 +53,7 @@ def return_LBC_centreline(meshdata,
     s = time()
 
     # local shift
-    local_shift = np.mean(pcd, axis = 0)
+    local_shift = np.mean(pcd, axis=0)
 
     # convert to open3d object-
     shifted_pcd = array_to_o3d(pcd - local_shift)
@@ -74,16 +75,16 @@ def return_LBC_centreline(meshdata,
     s = time()
 
     # perform connected component analysis to get rid of erroneous data points that sometimes appear 
-    cc0_downsampled_coords = return_largest_component(downsampled_coords, 
-                                    eps = 0.5,
-                                    min_component_size= 10)
+    cc0_downsampled_coords = return_largest_component(downsampled_coords,
+                                                      eps=0.5,
+                                                      min_component_size=10)
 
     print(f"found largest component in {time() - s:.4f}s")
     s = time()
 
-    mst = mist.GetMST(x=cc0_downsampled_coords[:, 0], 
-                    y=cc0_downsampled_coords[:, 1], 
-                    z=cc0_downsampled_coords[:, 2])
+    mst = mist.GetMST(x=cc0_downsampled_coords[:, 0],
+                      y=cc0_downsampled_coords[:, 1], 
+                      z=cc0_downsampled_coords[:, 2])
 
     degree, _, _, _, edge_index, branch_index = mst.get_stats(include_index=True, k_neighbours= 5)
 
@@ -126,6 +127,6 @@ def return_LBC_centreline(meshdata,
     best_path = np.array(nx.shortest_path(fullG, leaf[i], leaf[j])).astype(int)
 
     return dict(sparse_cloud=cc0_downsampled_coords,
-                mst_graph = fullG,
-                centreline= best_path,
+                mst_graph=fullG,
+                centreline=best_path,
                 skeleton_cloud_size=np.asarray(lbc.contracted_point_cloud.points).shape[0])

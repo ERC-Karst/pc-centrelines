@@ -204,7 +204,7 @@ def mesh_intersect(theMesh, P: np.ndarray, nP : np.ndarray, verbose= False) -> t
     cc_sizes = [np.sum(dbscan_labels == c) for c in np.unique(dbscan_labels)  if c >=0]
 
     n_cc = len(cc_sizes)
-    if verbose == True:
+    if verbose is True:
         print(f"there are {n_cc} connected components.")
 
     # check if there are strictly more than 1 connected components.
@@ -238,7 +238,7 @@ def mesh_intersect(theMesh, P: np.ndarray, nP : np.ndarray, verbose= False) -> t
             c+=1
          
 
-        if verbose == True:
+        if verbose is True:
             for c, ring in enumerate(rings):
                 print("which rings should we use?", P, ring[f"P_mean_ring{c}"], ring[f"ring{c}_extent"])
 
@@ -390,7 +390,7 @@ def optimise_section(theMesh,
             return log, msg, e-s , i
 
         else:
-            if verbose == True:
+            if verbose is True:
                 print("updating the normal.")
         # two rotations are possible around a unit vector colinear with W
             # amount of rotation is given by the norm of W
@@ -420,7 +420,7 @@ def optimise_section(theMesh,
             prog_crit_2 = np.linalg.norm(W2)/np.abs(A2)
 
             if prog_crit_1 > normW / np.abs(A) and prog_crit_2 > normW / np.abs(A):
-                if verbose == True:
+                if verbose is True:
                     print("neither rotation improves the W vector. ", np.round(nP, 3))
 
                 msg = f"algorithm stopped in {i} iterations"
@@ -433,14 +433,14 @@ def optimise_section(theMesh,
                     nP = nP1
                     normnP = np.linalg.norm(nP)
                     nP = nP / normnP
-                    if verbose == True:
+                    if verbose is True:
                         print("choosing the first option", np.round(nP, 3))
                         
                 else:
                     nP = nP2
                     normnP = np.linalg.norm(nP)
                     nP = nP / normnP
-                    if verbose == True:
+                    if verbose is True:
                         print("choosing the second option", np.round(nP, 3))
             
             
@@ -546,7 +546,7 @@ def iterative_pathfinder(mesh_data,
 
                 # calculate the centre of gravity of the best polyline section found by area minimisation 
                 cog =  np.mean(best_section, axis = 0)
-                if verbose == True:
+                if verbose is True:
                     print("centre of gravity of best section", cog)
                 ct[-1] = cog
                 # check we are not making a huge jump (no more than 3 times the current ds.)
@@ -562,7 +562,7 @@ def iterative_pathfinder(mesh_data,
                 # update the current normal vector value.
                 nP = nP_new*step_sign
 
-                if verbose == True:
+                if verbose is True:
                     print(f"moving by step: {np.round(nP, 3)} to {np.round(P, 3)}.")
 
                 # update the centreline and normal vector log
@@ -601,7 +601,7 @@ def iterative_pathfinder(mesh_data,
 
                 k+=1 # update the iteration counter
 
-                if verbose == True:
+                if verbose is True:
                     print(f"now moving to distance {d} from the end point.")
                 
             except (ValueError, IndexError, TypeError):

@@ -23,10 +23,15 @@ __all__ = ['return_MST_centrelines']
 
 DELTA = 100
 
-def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
-                          delta: float = DELTA, 
-                          verbose = False,
-                          to_dxf = False, demo = False) -> dict:
+def return_MST_centrelines(mesh_path,
+                           voxset_path,
+                           P1,
+                           P2,
+                           delta:float=DELTA,
+                           verbose:bool=False,
+                           to_dxf:bool=False,
+                           demo:bool=False
+                           ) -> dict:
     """A function encapsulating the voxel-based centrelining process from a mesh.
         It is a wrapper on the C++ voxeliser and b-spline executables.
 
@@ -68,12 +73,12 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
     c.addEdges()
 
-    source1 = c.findNearestNode(P1*1000, verbose = verbose)
-    target1 = c.findNearestNode(P2*1000, verbose = verbose)
+    source1 = c.findNearestNode(P1*1000, verbose=verbose)
+    target1 = c.findNearestNode(P2*1000, verbose=verbose)
 
     p = c.computeCenterline(source1, target1)
 
-    if verbose == True:
+    if verbose==True:
         print("p, the centreline is of type: ",  type(p))
         print("delta, the voxel grid size is: ", type(c.delta))
 
@@ -82,7 +87,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     jagged_centreline = [np.array(x) for x in p]
     coords = np.array(jagged_centreline) / 1000
     # save to file.
-    np.savetxt(f"{thedir}//{conduit_name}_{delta}_jagged_centreline.txt", coords, fmt= "%.5e")
+    np.savetxt(f"{thedir}//{conduit_name}_{delta}_jagged_centreline.txt", coords, fmt="%.5e")
 
     # grow a buffer using 26-neighbour adjacency
     u = Unzigzag(p, c.G.nodes, c.delta)
@@ -113,7 +118,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     centerlines = {}
     
     # save to file.
-    np.savetxt(f"{thedir}//{conduit_name}_{delta}_raw_centreline.txt", coords, fmt= "%.5e")
+    np.savetxt(f"{thedir}//{conduit_name}_{delta}_raw_centreline.txt", coords, fmt="%.5e")
     centerlines["raw"] = coords
 
 
@@ -127,7 +132,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
     coords = np.array(p2)/1000
     # save to file.
-    np.savetxt(f"{thedir}//{conduit_name}_{delta}_centerline-simplified.txt", coords, fmt= "%.5e")
+    np.savetxt(f"{thedir}//{conduit_name}_{delta}_centerline-simplified.txt", coords, fmt="%.5e")
     centerlines["simplified"] = coords
 
 
@@ -190,7 +195,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"{thedir}/{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.6e")
+        np.savetxt(f"{thedir}/{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt="%.6e")
         centerlines["centerspline_direct"] = coords
 
 
@@ -205,7 +210,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
 
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"{thedir}//{conduit_name}_{delta}_centerspline-fit-simplified.txt", coords, fmt= "%.5e")
+        np.savetxt(f"{thedir}//{conduit_name}_{delta}_centerspline-fit-simplified.txt", coords, fmt="%.5e")
         centerlines["centerspline_fit-simplified"] = coords
 
         cps = readBinPath(f"{thedir}/bspline1.bin")
@@ -220,12 +225,12 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
         
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"{thedir}//{conduit_name}_{delta}_centerspline-fit1.txt", coords, fmt= "%.5e")
+        np.savetxt(f"{thedir}//{conduit_name}_{delta}_centerspline-fit1.txt", coords, fmt="%.5e")
         centerlines["centerspline_fit1"] = coords
         centerlines["original_grid_points"] = len(c.G)
 
     else:
-        if verbose == True:
+        if verbose is True:
             print("simplified polyline has fewer than 2 vertices. Impossible to simplify further.")
         
         s4 = spline.subdivideBeziers(s2, 100)
@@ -237,7 +242,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
         
         coords = np.array(ps)/1000
         # save to file.
-        np.savetxt(f"{thedir}//{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt= "%.5e")
+        np.savetxt(f"{thedir}//{conduit_name}_{delta}_centerspline-direct.txt", coords, fmt="%.5e")
         centerlines["centerspline_direct"] = coords
 
         centerlines["original_grid_points"] = len(c.G)

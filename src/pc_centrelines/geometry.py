@@ -196,7 +196,7 @@ def centre_of_gravity(ngon: np.ndarray, verbose: bool = False) -> np.ndarray:
     if test:
         cog = Rprime @ cog
 
-    if verbose == True:
+    if verbose is True:
         print("estimated area",  np.abs(np.sum(u[:, 0]* v[:, 1] - u[:, 1]*v[:, 0]))/ 2)
 
     return cog
@@ -255,7 +255,7 @@ def fit_ellipse(points2d, verbose = False, npoints = 500):
 
     ellipse_rotation = np.rad2deg(np.arcsin(S[np.argsort(D)[::-1]][0, 1]))
 
-    if verbose == True:
+    if verbose is True:
         print(G, area)
         print(D, S)
         print(aspect_ratio)
@@ -291,7 +291,7 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
     Journal of Graphics Tools, 4(4), 1–4. doi:10.1080/10867651.1999.10487509'
     """
 
-    if verbose == True:
+    if verbose is True:
         print("troubleshooting:  ", t, f, np.linalg.norm(t), np.linalg.norm(f))
 
     t = t.astype(float) / np.linalg.norm(t)
@@ -300,7 +300,7 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
     # check that the vectors are not already near parallel. 
     if np.allclose(np.abs(np.dot(f, t)), 1, 0.01):
 
-        if verbose == True:
+        if verbose is True:
             print("vectors seem to be near parallel, using reflections to compute rotation.")
 
         # product of two reflections is a rotation matrix, and easier to construct when 
@@ -338,11 +338,11 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
         )
 
     if np.allclose(t, R @ f, 0.001):
-        if verbose == True:
+        if verbose is True:
             print("Rotation successful")
         return R
     else:
-        if verbose == True:
+        if verbose is True:
             print("Rotation unsuccessful")
         return R
     

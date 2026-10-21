@@ -1,12 +1,25 @@
+#    Copyright (C) 2024-2026 by
+#    Tanguy Racine <tanguy.racine@unine.ch>
+#    All rights reserved.
+#    MIT license.
+#
+"""
+pc-centrelines Laplacian based centreline
+=============
+
+The cloud contraction centrelining algorithm
+
+"""
+
 import numpy as np
 import mistree as mist
 import networkx as nx
 
 from itertools import combinations
 from time import time
-from utils import array_to_o3d, return_largest_component
 
-from laplacian import LBC
+from pc_centrelines.utils import array_to_o3d, return_largest_component
+from pc_centrelines.laplacian import LBC
 
 __all__ = ['return_LBC_centreline']
 

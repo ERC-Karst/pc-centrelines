@@ -1,3 +1,16 @@
+#    Copyright (C) 2024-2026 by
+#    Tanguy Racine <tanguy.racine@unine.ch>
+#    All rights reserved.
+#    MIT license.
+#
+"""
+pc-centrelines iterative pathfinder
+=============
+
+The iterative path finder module contains the iterative stepper centrelining algorithm
+
+"""
+
 import numpy as np
 import networkx as nx
 import open3d as o3d
@@ -5,7 +18,7 @@ import open3d as o3d
 from itertools import permutations
 from scipy.sparse.csgraph import minimum_spanning_tree
 from sklearn.metrics import pairwise_distances
-from geometry import  rotate
+from pc_centrelines.geometry import rotate
 from time import time
 import tqdm as tqdm
 import warnings 

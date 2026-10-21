@@ -1,3 +1,16 @@
+#    Copyright (C) 2024-2026 by
+#    Tanguy Racine <tanguy.racine@unine.ch>
+#    All rights reserved.
+#    MIT license.
+#
+"""
+pc-centrelines utils
+=============
+
+This contains the general utilities. 
+
+"""
+
 import numpy as np
 import open3d as o3d
 import time
@@ -18,11 +31,10 @@ from stl import mesh
 from os import listdir
 from os.path import normpath, join
 
-from numba import jit
-import geometry as geom
+import pc_centrelines.geometry as geom
 
 
-def list_all_descriptors(repository):
+def list_all_descriptors(repository : str) -> list:
 
     # list the different cave directories at the root directory level
     caves = [elem for elem in listdir(repository) if "." not in elem]
@@ -38,7 +50,7 @@ def list_all_descriptors(repository):
     return passages_filepaths
 
 
-def list_all_centrelines(repository):
+def list_all_centrelines(repository : str) -> list:
 
     # list the different cave directories at the root directory level
     caves = [elem for elem in listdir(repository) if "." not in elem]
@@ -54,7 +66,7 @@ def list_all_centrelines(repository):
     return passages_filepaths
 
 
-def list_all_plymeshes(repository):
+def list_all_plymeshes(repository : str) -> list:
 
     # list the different cave directories at the root directory level
     caves = [elem for elem in listdir(repository) if "." not in elem]
@@ -164,6 +176,7 @@ def return_largest_component(points: np.ndarray,
     # return largest.toNpArrayCopy()
 
 # convenience function to go from numpy to o3d needed by LBC
+
 def array_to_o3d(pointcloud: np.ndarray):
     """Converts a numpy.ndarray object (N x 3 matrix) with spatial coordinates to an open3d.geometry pointcloud
     object, as required for running the Laplacian-based contraction algorithm."""
@@ -191,7 +204,6 @@ def return_centreline_parametrisation(centreline, dt=1):
     normed_vectors = vectors / np.expand_dims(norm_vectors, -1)
     
     return interpolated_centreline, ti[1:-1], normed_vectors
-
 
 
 # a convenience function to resample a centreline using a 1d interpolator. 
@@ -260,8 +272,8 @@ def trim_adjust(ct1 : np.ndarray, ct2 : np.ndarray, eps : float) -> tuple:
 
 
     # projection of a point on a segment.
-    # si qprime - Q[1] @ qprim - Q[0] = -1, alors, bon, Q[0] = qprime
-    # sinon, P[0] = pprime
+    # if qprime - Q[1] @ qprim - Q[0] = -1, then Q[0] = qprime
+    # then, P[0] = pprime
     # we check now which way this should go. 
     Nq = (Q[1] - Q[0]) / np.linalg.norm(Q[1] - Q[0])
     pq = (P[0] - Q[0])
@@ -294,23 +306,6 @@ def trim_adjust(ct1 : np.ndarray, ct2 : np.ndarray, eps : float) -> tuple:
 
 ## Mesh intersections 
 
-
-def levi_civita_tensor(n):
-    """returns the levi_civita tensor in n dimentions"""
-
-    # initialise an empty multidimensional matrix (for n = 3, shape is (3,3,3))
-    arr=np.zeros(tuple([n for _ in range(n)]))
-
-    
-    for x in itertools.permutations(tuple(range(n))):
-        mat = np.zeros((n, n), dtype=np.int32)
-        
-        for i, j in zip(range(n), x):
-            mat[i, j] = 1
-        
-        arr[x]=int(np.linalg.det(mat))
-        
-    return arr  
 
 
 def return_ring(mesh, adjacent_triangles, P, nP, d, D):

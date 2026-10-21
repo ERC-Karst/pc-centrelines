@@ -1,10 +1,23 @@
+#    Copyright (C) 2024-2026 by
+#    Tanguy Racine <tanguy.racine@unine.ch>
+#    All rights reserved.
+#    MIT license.
+#
+"""
+pc-centrelines MST centreline
+=============
+
+The voxel-based centrelining algorithm
+
+"""
+
 import numpy as np
 import sys
 from os.path import normpath, split, abspath
 from subprocess import check_output
 
-from centreliner.centreline import *
-from centreliner.centreline import simplify, spline
+from pc_centrelines.centreliner.centreline import *
+from pc_centrelines.centreliner.centreline import simplify, spline
 
 __all__ = ['return_MST_centrelines']
 
@@ -41,7 +54,7 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     thedir = f"../data//{id}_{conduit_name}//mst"
 
     # set up the path to voxelizer executable
-    voxelize_path = abspath(normpath(f"./centreliner/voxelize.exe"))
+    voxelize_path = abspath(normpath(f"../src/pc_centrelines/centreliner/voxelize.exe"))
 
     # set up the path of the mesh and voxsel set data
     mesh_path = abspath(normpath(mesh_path))
@@ -125,15 +138,31 @@ def return_MST_centrelines(mesh_path, voxset_path,P1, P2,
     writeBinPath(f"{thedir}/path.bin", p1)
     writeBinPath(f"{thedir}/path-simplified.bin", p2)
 
-    runModule("./centreliner/bspliner", [str(len(p1) / 3), f"{thedir}/path.bin", f"{thedir}/bspline.bin"])
-    runModule("./centreliner/bspliner", [str(len(p2) / 3), f"{thedir}/path.bin", f"{thedir}/bspline1.bin"])
     runModule(
-        "./centreliner/bspliner",
+        "../src/pc_centrelines/centreliner/bspliner", 
+        [
+            str(len(p1) / 3), 
+            f"{thedir}/path.bin", 
+            f"{thedir}/bspline.bin"
+        ]
+    )
+    
+    runModule(
+        "../src/pc_centrelines/centreliner/bspliner", 
+        [
+            str(len(p2) / 3), 
+            f"{thedir}/path.bin", 
+            f"{thedir}/bspline1.bin"
+        ]
+    )
+    
+    runModule(
+        "../src/pc_centrelines/centreliner/bspliner",
         [
             str(len(p2) / 3),
             f"{thedir}/path-simplified.bin",
             f"{thedir}/bspline-simplified.bin",
-        ],
+        ]
     )
 
     # there is no need to simplify a line if it only has 3 control points. 

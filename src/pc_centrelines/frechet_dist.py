@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Spiros Denaxas, & Maria Pikoula. (2019). 
-# spiros/discrete_frechet: meerkat stable release (meerkat). 
+# Spiros Denaxas, & Maria Pikoula. (2019).
+# spiros/discrete_frechet: meerkat stable release (meerkat).
 # Zenodo. https://doi.org/10.5281/zenodo.3366385
 
 import numpy as np
@@ -28,7 +28,7 @@ def _c(ca, i, j, p, q):
                 _c(ca, i, j-1, p, q)
             ),
             np.linalg.norm(p[i]-q[j])
-            )
+        )
     else:
         ca[i, j] = float('inf')
 
@@ -102,8 +102,9 @@ def frdist(p, q):
 
     if len_p == 0 or len_q == 0:
         raise ValueError('Input curves are empty.')
-        
+
     ca = (np.ones((len_p, len_q), dtype=np.float64) * -1)
 
     dist = _c(ca, len_p-1, len_q-1, p, q)
+
     return dist

@@ -29,9 +29,8 @@ LBC_ARGS = dict(init_attraction=0.5, init_contraction=0.5, down_sample=0.5)
 
 
 def return_LBC_centreline(meshdata,
-                          ct_args: dict = CT_ARGS, 
+                          ct_args: dict = CT_ARGS,
                           lbc_args: dict = LBC_ARGS) -> dict:
-    
     """A function encapsulating Laplacian-Based-contraction on a mesh
 
     :param mesh: An open3d mesh object
@@ -49,7 +48,7 @@ def return_LBC_centreline(meshdata,
     pcd = meshdata.centroids
     s = time()
     print(f"read file in {time() - s:.4f}s")
-    
+
     s = time()
 
     # local shift
@@ -58,23 +57,24 @@ def return_LBC_centreline(meshdata,
     # convert to open3d object-
     shifted_pcd = array_to_o3d(pcd - local_shift)
 
-    # set up the Laplacian-based contraction algorithm 
+    # set up the Laplacian-based contraction algorithm
     lbc = LBC(point_cloud=shifted_pcd, **lbc_args)
     print(f"contracted file in {time() - s:.4f}s")
     s = time()
-    # extract the skeleton (this step takes a little while) 
+    # extract the skeleton (this step takes a little while)
     lbc.extract_skeleton()
 
     print(f"extracted skeleton in {time() - s:.4f}s")
     s = time()
 
-    downsampled_lbc = lbc.contracted_point_cloud.voxel_down_sample(voxel_size = ct_args["centreline_down_sample"])
+    downsampled_lbc = lbc.contracted_point_cloud.voxel_down_sample(
+        voxel_size=ct_args["centreline_down_sample"])
     downsampled_coords = np.asarray(downsampled_lbc.points) + local_shift
 
     print(f"downsampled the centreline cloud in {time() - s:.4f}s")
     s = time()
 
-    # perform connected component analysis to get rid of erroneous data points that sometimes appear 
+    # perform connected component analysis to get rid of erroneous data points that sometimes appear
     cc0_downsampled_coords = return_largest_component(downsampled_coords,
                                                       eps=0.5,
                                                       min_component_size=10)
@@ -83,10 +83,11 @@ def return_LBC_centreline(meshdata,
     s = time()
 
     mst = mist.GetMST(x=cc0_downsampled_coords[:, 0],
-                      y=cc0_downsampled_coords[:, 1], 
+                      y=cc0_downsampled_coords[:, 1],
                       z=cc0_downsampled_coords[:, 2])
 
-    degree, _, _, _, edge_index, branch_index = mst.get_stats(include_index=True, k_neighbours= 5)
+    degree, _, _, _, edge_index, branch_index = mst.get_stats(
+        include_index=True, k_neighbours=5)
 
     print(f"computed minimum spanning tree in {time() - s:.4f}s")
     s = time()
@@ -104,12 +105,13 @@ def return_LBC_centreline(meshdata,
     print(f"added node coordinates to graph in  {time() - s:.4f}s")
     s = time()
 
-    # find the longest path on the tree: our centreline. 
+    # find the longest path on the tree: our centreline.
 
     # identify the leaves of the tree
-    leaf = np.argwhere(degree==1).flatten().astype(int)
+    leaf = np.argwhere(degree == 1).flatten().astype(int)
 
-    print(f"this minimum spanning tree has {len(leaf)} leaves. Need to identify the best path.")
+    print(
+        f"this minimum spanning tree has {len(leaf)} leaves. Need to identify the best path.")
 
     # the shortest path linking our two extremities.
     best_shortest_path = 0

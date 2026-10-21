@@ -76,7 +76,7 @@ dependencies = [
 "kiwisolver==1.4.9",
 "laspy==2.7.0",
 "lazrs==0.8.1",
-"libmambapy==2.5.0",
+"libmambapy",
 "llvmlite==0.50.0",
 "loguru==0.7.3",
 "m2r2==0.3.4",

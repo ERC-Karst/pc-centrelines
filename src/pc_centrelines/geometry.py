@@ -204,7 +204,7 @@ def rotate(u, theta):
     return R
 
 
-def fit_ellipse(points2d, verbose = False):
+def fit_ellipse(points2d, verbose = False, npoints = 500):
 
     # first part is PCA transform of the shape. 
     mean_points2d = np.mean(points2d, axis = 0)
@@ -233,7 +233,7 @@ def fit_ellipse(points2d, verbose = False):
     # k is a scaling factor to make the ellipse area equal to that of the ngon 
     k = np.sqrt(area  / (np.sqrt(np.linalg.det(Sigma))*np.pi))
     # determined ellipse
-    t = np.linspace(0,2*np.pi,500)
+    t = np.linspace(0,2*np.pi, npoints)
     Y = np.vstack((np.cos(t), np.sin(t)))
     determined_ellipse = (k * S @ np.sqrt(D) @ Y).T + G + mean_points2d
     ellipse_area = compute_ngon_area(determined_ellipse)

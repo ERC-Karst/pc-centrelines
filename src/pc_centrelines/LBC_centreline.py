@@ -1,3 +1,16 @@
+#    Copyright (C) 2024-2026 by
+#    Tanguy Racine <tanguy.racine@unine.ch>
+#    All rights reserved.
+#    MIT license.
+#
+"""
+pc-centrelines Laplacian based centreline
+=============
+
+The cloud contraction centrelining algorithm
+
+"""
+
 import numpy as np
 import mistree as mist
 import networkx as nx

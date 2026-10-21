@@ -1,3 +1,16 @@
+#    Copyright (C) 2024-2026 by
+#    Tanguy Racine <tanguy.racine@unine.ch>
+#    All rights reserved.
+#    MIT license.
+#
+"""
+pc-centrelines MST centreline
+=============
+
+The voxel-based centrelining algorithm
+
+"""
+
 import numpy as np
 import sys
 from os.path import normpath, split, abspath

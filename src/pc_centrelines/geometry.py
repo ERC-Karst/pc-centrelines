@@ -1,3 +1,16 @@
+#    Copyright (C) 2024-2026 by
+#    Tanguy Racine <tanguy.racine@unine.ch>
+#    All rights reserved.
+#    MIT license.
+#
+"""
+pc-centrelines geometries
+=============
+
+THe geometry module contains utilities.
+
+"""
+
 import numpy as np
 from scipy.spatial import ConvexHull
 from sklearn.metrics import pairwise_distances

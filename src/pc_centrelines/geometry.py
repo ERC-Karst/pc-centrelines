@@ -16,8 +16,7 @@ from scipy.spatial import ConvexHull
 from sklearn.metrics import pairwise_distances
 from shapely import Polygon, LineString, get_coordinates
 from shapely.ops import split
-import pytest
-
+from typing import List
 
 def compute_ngon_perimeter(a: np.ndarray) -> float:
     """compute_ngon_perimeter calculates the perimeter of a closed polygon 
@@ -32,18 +31,6 @@ def compute_ngon_perimeter(a: np.ndarray) -> float:
     return np.sqrt(np.sum((np.roll(a, 1, axis=0) - a)**2, axis=1)).sum()
 
 
-a = np.array(([0, 0], [0, 1], [1, 1], [1, 0]))
-b = np.array(([0, 0], [1, 0], [1, 1], [0, 1]))
-c = np.array([np.cos(np.linspace(-np.pi, np.pi, 2000)),
-             np.sin(np.linspace(-np.pi, np.pi, 2000))]).T
-
-
-@pytest.mark.parametrize("test_input,expected", [(a, 4), (b, 4), (c, 2*np.pi)])
-def test_compute_ngon_perimeter(test_input, expected):
-    assert compute_ngon_perimeter(
-        test_input) == pytest.approx(expected, abs=1e-5)
-
-
 def compute_ngon_area(a: np.ndarray) -> float:
     """compute_ngon_area calculates the area of a closed polygon whose vertex i coordinates are given by x[i] and y[i]
 
@@ -55,11 +42,6 @@ def compute_ngon_area(a: np.ndarray) -> float:
 
     x, y = a.T
     return 0.5*np.abs(np.dot(x, np.roll(y, 1))-np.dot(y, np.roll(x, 1)))
-
-
-@pytest.mark.parametrize("test_input,expected", [(a, 1), (b, 1), (c, np.pi)])
-def test_compute_ngon_area(test_input, expected):
-    assert compute_ngon_area(test_input) == pytest.approx(expected, abs=1e-5)
 
 
 def compute_ngon_dh(a: float, p: float) -> float:
@@ -82,14 +64,6 @@ def compute_ngon_dh(a: float, p: float) -> float:
     """
 
     return 4 * a / p
-
-
-@pytest.mark.parametrize("test_input,expected", [(a, 1), (b, 1), (c, 2)])
-def test_compute_ngon_dh(test_input, expected):
-    A = compute_ngon_area(test_input)
-    P = compute_ngon_perimeter(test_input)
-
-    assert compute_ngon_dh(A, P) == pytest.approx(expected, abs=1e-5)
 
 
 def compute_convex_hull(a: np.ndarray) -> np.ndarray:
@@ -115,15 +89,6 @@ def compute_convex_hull(a: np.ndarray) -> np.ndarray:
     hull_vertices = np.array((a[hull.vertices, 0], a[hull.vertices, 1])).T
 
     return hull_vertices
-
-
-d = np.vstack((b, [0.5, 0.5]))
-
-
-@pytest.mark.parametrize("test_input,expected", [(d, b)])
-def test_compute_convex_hull(test_input, expected):
-    assert compute_convex_hull(test_input) == pytest.approx(expected, abs=1e-5)
-
 
 def make_ellipse(a: float, b: float, theta: float, npoints=500) -> np.ndarray:
     """
@@ -154,12 +119,6 @@ def make_ellipse(a: float, b: float, theta: float, npoints=500) -> np.ndarray:
                     [np.sin(theta), np.cos(theta)]]).astype(np.float32)
     # return rotated ellipse.
     return np.dot(xy, rot)
-
-
-@pytest.mark.parametrize("test_input,expected", [((1, 1, 0), np.pi), ((1, 2, np.pi), 2*np.pi), ((2, 1, np.pi/2), 2*np.pi)])
-def test_make_ellipse(test_input, expected):
-    ellipse = make_ellipse(*test_input, npoints=4000)
-    assert compute_ngon_area(ellipse) == pytest.approx(expected, abs=1e-5)
 
 
 def centre_of_gravity(ngon: np.ndarray, verbose: bool = False) -> np.ndarray:
@@ -216,19 +175,24 @@ def centre_of_gravity(ngon: np.ndarray, verbose: bool = False) -> np.ndarray:
     return cog
 
 
-@pytest.mark.parametrize("test_input,expected", [(a, [0.5, 0.5]), (b, [0.5, 0.5]), (c, [0, 0])])
-def test_centre_of_gravity(test_input, expected):
-    assert centre_of_gravity(test_input) == pytest.approx(expected, abs=1e-5)
-
-
-def rotate(u, theta):
+def rotate(u: np.ndarray, theta: float = 0) -> np.ndarray:
     """
     returns the rotation matrix given a unit vector u for direction and an angle theta.
     see also: orientations and rotations: https.//doi.org/10.1007/978-3-662-09156-2
+    
+    :param u: the direction vector
+    :type u: np.ndarray
+    :param theta: the angle of rotation in radians, defaults to 0
+    :type theta: float, optional
+
+    :return: a (3X3) rotation matrix
+    :rtype: np.ndarray 
     """
 
     costh = np.cos(theta)
     sinth = np.sin(theta)
+
+    u /= np.linalg.norm(u)
 
     ux = u[0]
     uy = u[1]
@@ -251,12 +215,25 @@ def rotate(u, theta):
     return R
 
 
-def fit_ellipse(points2d, verbose=False, npoints=500):
+def fit_ellipse(points2d : np.ndarray , verbose=False, npoints=500)-> tuple:
+    """Determine a best-fit ellipse on a 2D closed planar curve
+
+    :param points2d: the closed planar curve.
+    :type points2d: np.ndarray
+    :param verbose: whether to indicate some progress print statements, defaults to False
+    :type verbose: bool, optional
+    :param npoints: _description_, defaults to 500
+    :type npoints: int, optional
+    :return: a tuple contaning the parametrised best fit ellipse and its various components
+    :rtype: type
+    """
+
 
     # first part is PCA transform of the shape.
     mean_points2d = np.mean(points2d, axis=0)
     X = points2d - mean_points2d
 
+    # find the centre of gravity
     G = centre_of_gravity(X)
     area = compute_ngon_area(X)
 
@@ -279,7 +256,8 @@ def fit_ellipse(points2d, verbose=False, npoints=500):
     D = np.diag(D)
     # k is a scaling factor to make the ellipse area equal to that of the ngon
     k = np.sqrt(area / (np.sqrt(np.linalg.det(Sigma))*np.pi))
-    # determined ellipse
+    
+    # determined ellipse using the following parametrisation
     t = np.linspace(0, 2*np.pi, npoints)
     Y = np.vstack((np.cos(t), np.sin(t)))
     determined_ellipse = (k * S @ np.sqrt(D) @ Y).T + G + mean_points2d
@@ -366,7 +344,24 @@ def vec2vec_rotation(f: np.ndarray, t: np.ndarray, verbose: bool = False) -> np.
         return R
 
 
-def to2D(points3d, nP, returnTransform=False, verbose=False):
+def to2D(points3d : np.ndarray, nP : np.ndarray, returnTransform : bool =False, verbose : bool =False)-> tuple:
+    """Reproject a 3d closed planar into a 2D coordinate system in the plane. 
+    First a rotation to verticalise the plane, then a rotation to align horizontal lines
+    with the E-W cardinal directions is calculated.
+    This preserves the vertical orientation of the planar curve: (the top remains as the top).
+
+    :param points3d: the 3d closed planar curve
+    :type points3d: np.ndarray
+    :param nP: the pole to the plane
+    :type nP: np.ndarray
+    :param returnTransform: whether to output the transformation
+    :type returnTransform: bool, optional
+    :param verbose: _description_, defaults to False
+    :type verbose: bool, optional
+    :return: _description_
+    :rtype: tuple
+    """
+    
     if np.sign(nP[2]) != 0:
         d = nP * np.sign(nP[2])
     else:
@@ -377,23 +372,23 @@ def to2D(points3d, nP, returnTransform=False, verbose=False):
     d1[2] = 0
     # define a normal vector
     d2 = np.array([0, 1, 0])
-    # first rotation
+    # first rotation to verticalise the plane
     R1 = vec2vec_rotation(d, d1, verbose=verbose)
     pp = points3d - np.mean(points3d, axis=0)
     pp_vertical = R1 @ pp.T
-    # second rotation
+    # second rotation to align the plane with the E-W cardinal direction.
     R2 = vec2vec_rotation(d1, d2, verbose=verbose)
     pp_rotated = R2 @ pp_vertical
     # only assign the x and y direction for the 2d case
     points2d = pp_rotated.T[:, [0, 2]]
 
-    if returnTransform == False:
-        return points2d
-    else:
-        return points2d, R1, R2
+    if returnTransform is False:
+        R1, R2 =  None, None
+
+    return points2d, R1, R2
 
 
-def is_closed(a: np.ndarray, tol=1e-1):
+def is_closed(a : np.ndarray, tol : float=1e-1) -> bool:
     """ 
     Is a 2d polygon section closed within a given tolerance?  
     """
@@ -443,33 +438,57 @@ def compute_circular_variance(a: np.ndarray, c: np.ndarray, A: float):
     return circular_variance
 
 
-def compute_polygon_solidity(a: np.ndarray):
-    c_hull = ConvexHull(a)
-    area_hull = compute_ngon_area(a[c_hull.vertices])
-    area_polygon = compute_ngon_area(a)
+def compute_polygon_solidity(point2d: np.ndarray)-> float:
+    """Compute the ratio of section area to section convexhull area
+    this is the convexhull solidity, varying from 0 to 1 (fully convex section)
+
+    :param points2d: 
+    :type points2d: np.ndarray
+    :return: the actual solidity
+    :rtype: float
+    """
+
+    c_hull = ConvexHull(point2d)
+    area_hull = compute_ngon_area(point2d[c_hull.vertices])
+    area_polygon = compute_ngon_area(point2d)
+
     return area_polygon / area_hull
 
 
-def return_below_fill_height(section, fill_height):
-    # roll the section so any gap is at the top, always.
-    polysection = Polygon(section)
+def return_below_fill_height(points2d: np.ndarray, fill_height: float = 1) -> List[np.ndarray]:
+    """return the section below a certain fill height, varying from 0 to 1.
 
-    minx, miny = np.min(section, axis=0)
-    maxx, maxy = np.max(section, axis=0)
+    :param points2d: a 2d closed planar curve.
+    :type points2d: np.ndarray
+    :param fill_height: the ratio to the fill height to total passage height., defaults to 1
+    :type fill_height: float, optional
+    :return: _description_
+    :rtype: 
+    """
+
+    # transform the closed planar curve to a shapely polygon instance.
+    polysection = Polygon(points2d)
+    # extract the bounds
+    minx, miny = np.min(points2d, axis=0)
+    maxx, maxy = np.max(points2d, axis=0)
     bounds = [minx, maxx, miny, maxy]
 
+    # define the cut line
     line = LineString([[bounds[0], bounds[2]+fill_height*(bounds[3]-bounds[2])],
                       [bounds[1], bounds[2]+fill_height*(bounds[3]-bounds[2])]])
+    
+    # store the sections as a list of new polygons
     split_sections = split(polysection, line)
 
     filled_areas = []
 
     for split_section in split_sections.geoms:
         linear_ring = get_coordinates(split_section.exterior)
-
+        # get the coordinates of each split section
         if np.max(linear_ring[:, 1]) == bounds[2]+fill_height*(bounds[3]-bounds[2]):
+            # only append if the split area is actually below the fill height.
             filled_areas.append(linear_ring)
-
+    # return the list of filled areas as a 2d np.ndarrays.
     return filled_areas
 
 

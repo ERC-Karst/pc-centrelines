@@ -13,10 +13,18 @@ THe geometry module contains utilities.
 
 import numpy as np
 from scipy.spatial import ConvexHull
+
+import networkx as nx
+import open3d as o3d
+from itertools import permutations
+from scipy.sparse.csgraph import minimum_spanning_tree
 from sklearn.metrics import pairwise_distances
 from shapely import Polygon, LineString, get_coordinates
 from shapely.ops import split
 from typing import List
+from tqdm import tqdm
+from stl import mesh
+from warnings import catch_warnings, filterwarnings
 
 def compute_ngon_perimeter(a: np.ndarray) -> float:
     """compute_ngon_perimeter calculates the perimeter of a closed polygon 
@@ -605,6 +613,329 @@ def describe(section: np.ndarray) -> dict:
 
     return description
 
+
+# Mesh intersections
+
+def levi_civita_tensor(n):
+    """returns the levi_civita tensor in n dimentions"""
+
+    # initialise an empty multidimensional matrix (for n = 3, shape is (3,3,3))
+    arr = np.zeros(tuple([n for _ in range(n)]))
+
+    for x in permutations(tuple(range(n))):
+        mat = np.zeros((n, n), dtype=np.int32)
+
+        for i, j in zip(range(n), x):
+            mat[i, j] = 1
+
+        arr[x] = int(np.linalg.det(mat))
+
+    return arr
+
+def mesh_intersect(theMesh, P: np.ndarray, nP: np.ndarray, verbose=False) -> tuple:
+    """Computes the intersection between a mesh and plane defined by a point and normal vector.
+    Returns a tuple containing, among others: the normal vector used, the list of mesh vertices M, the list of segment midpoints M1M2,
+    the list of intersected face normals (nOmega), the quantity W and the closed planar curve's area.
+
+    :param mesh: An open3d mesh object
+    :type mesh: _type_
+    :param P: the point through which the intersection plane passes
+    :type P: np.ndarray
+    :param nP: the normal vector definining the intersection plane 
+    :type nP: np.ndarray
+    :param verbose: whether to print progress reports, defaults to False
+    :type verbose: bool, optional
+    :return: M_ordered, nOmega_ordered, M1M2_ordered, W, a
+    :rtype: tuple
+    """
+
+    # build the levi_civita symbol
+    eps = levi_civita_tensor(3)
+    # extract the vertex position vectors.
+    pos_vec = theMesh.vectors
+    # extract the vertex normal vectors
+    norm_vec = theMesh.normals
+
+    # calculate the dot product of each triangle vertex to the plane of section: distance plane to vertex.
+    PT_i_k = (P - pos_vec) @ nP
+
+    # find all stricly positive or negative triplets.
+    all_pos = np.all(np.equal(PT_i_k, np.abs(PT_i_k)), axis=1)
+    all_neg = np.all(np.equal(-PT_i_k, np.abs(PT_i_k)), axis=1)
+
+    # find all the triangles containing quantities PT_i_k of opposite signs
+    # i.e. exclude all wholly positive or negative triplets
+    intersected_triangles = np.argwhere(~(all_neg | all_pos)).flatten()
+
+    # number of triangles to visit
+    n = len(intersected_triangles)
+
+    # this is a check to make sure the section actually crosses a minimum number of triangles.
+    # also check that we are not outside the triangle.
+    try:
+        assert n > 3
+    except AssertionError:
+        print("empty intersection on too few triangles intersected.")
+        return None
+
+    # initialisation of segment middle points, facet normals, W and area.
+    M = np.zeros((n, 3))
+    # segment edges
+    M1M2 = np.zeros((n, 2, 3))
+
+    # facet normals
+    nOmega = np.zeros((n, 3))
+    # W
+    W = np.zeros(3)
+    # area
+    area = 0
+
+    PTc = np.linalg.norm(P - theMesh.centroids[intersected_triangles], axis=1)
+    argminPTc = np.argmin(PTc)
+    start_idx = intersected_triangles[argminPTc]
+
+    if verbose == True:
+        print("now choosing the first triangle whose centroid is closest to the plane central point.")
+        print(start_idx, theMesh.centroids[start_idx], np.linalg.norm(
+            P - theMesh.centroids[start_idx]))
+
+    for c, i in enumerate(intersected_triangles):
+        # find the distance to plane quantities for the vertex triplet at the ith triangle.
+        PT_k = PT_i_k[i]
+
+        # select triplet of vertex position vectors
+        T = pos_vec[i]
+        # select triplet of vertex normal vectors
+        norm = norm_vec[i]
+
+        # label the summit alone in the half space with 0. # relabelling by rolling. Doing the same to the triangles.
+        if PT_k[1] * PT_k[2] < 0 and PT_k[0] * PT_k[1] < 0:
+            PT_k = np.roll(PT_k, 2)
+            T = np.roll(T, 2, axis=0)
+        elif PT_k[1] * PT_k[2] < 0 and PT_k[0] * PT_k[1] > 0:
+            PT_k = np.roll(PT_k, 1)
+            T = np.roll(T, 1, axis=0)
+
+        # the 0th label must be the solitary point, the other two must lie in the other half-space.
+
+        try:
+            assert PT_k[1] * PT_k[2] > 0
+        except AssertionError:
+            print("empty intersection on all triangle points in same half space.")
+            mesh_intersect(theMesh, P, nP+np.random.normal(0,
+                           0.005, 3), verbose=verbose)
+
+        # find how far from the lone-summit the points of intersection are along segments
+        alpha_i1 = PT_k[0] / (PT_k[0]-PT_k[1])
+        alpha_i2 = PT_k[0] / (PT_k[0]-PT_k[2])
+
+        # segment M_i1M_i2, lies in the place of intersection
+        M_i1M_i2 = alpha_i2*(T[0] - T[2]) - alpha_i1*(T[0] - T[1])
+
+        # check that it is true.
+
+        try:
+            assert np.abs(M_i1M_i2 @ nP) < 1e-2
+        except AssertionError:
+            print("empty intersection on points falling outside of tolerance.")
+            mesh_intersect(theMesh, P, nP+np.random.normal(0,
+                           0.005, 3), verbose=verbose)
+
+        # intersection of the plane with segment T_i0T_i1
+        M_i1 = T[0] - alpha_i1*(T[0] - T[1])
+        # intersection of the plane with segment T_i0T_i2
+        M_i2 = T[0] - alpha_i2*(T[0] - T[2])
+
+        # coordinates of the middle point of segment M_i1M_i2
+        M_i = M_i1-0.5 * M_i1M_i2
+
+        # update the arrays
+        M[c] = M_i
+        M1M2[c] = [M_i1, M_i2]
+        nOmega[c] = norm
+
+    if len(M) == 0:
+        raise ValueError
+
+    M_old = M.copy()
+
+    # select the cluster closest to point P.
+    point_cloud = o3d.geometry.PointCloud()
+    point_cloud.points = o3d.utility.Vector3dVector(M)
+    epsilon = 0.2  # Distance threshold for points in a cluster
+    min_points = 10  # Minimum number of points per cluster
+    dbscan_labels = np.array(point_cloud.cluster_dbscan(
+        eps=epsilon, min_points=min_points, print_progress=True))
+
+    # find out the size of the connected components
+    cc_sizes = [np.sum(dbscan_labels == c)
+                for c in np.unique(dbscan_labels) if c >= 0]
+
+    n_cc = len(cc_sizes)
+    if verbose is True:
+        print(f"there are {n_cc} connected components.")
+
+    # check if there are strictly more than 1 connected components.
+    if n_cc > 1:
+        # select first largest
+        c = 0
+
+        rings = []
+
+        while c <= n_cc:
+            cc0 = np.argmax(cc_sizes)
+            cc_sizes[cc0] = 0
+
+            ring_bool = dbscan_labels == cc0
+            ring_dic = {}
+            ring_dic[f"ring{c}_bool"] = ring_bool
+
+            ring_points = M[ring_bool]
+
+            X = ring_points - np.mean(ring_points, axis=0)
+            CovX = X.T @ X
+            eigenvalues, _ = np.linalg.eig(CovX)
+
+            ordered_eigenvalues = np.sort(eigenvalues)
+
+            ring_dic[f"P_mean_ring{c}"] = np.linalg.norm(
+                P - np.mean(M[ring_bool], axis=0))
+            ring_dic[f"ring{c}_extent"] = np.prod(
+                np.sqrt(ordered_eigenvalues[1:]))
+
+            rings.append(ring_dic)
+
+            c += 1
+
+        if verbose is True:
+            for c, ring in enumerate(rings):
+                print("which rings should we use?", P,
+                      ring[f"P_mean_ring{c}"], ring[f"ring{c}_extent"])
+
+            print(np.argmin(
+                [ring[f"P_mean_ring{c}"]/ring[f"ring{c}_extent"] for c, ring in enumerate(rings)]))
+
+        thering = np.argmin(
+            [ring[f"P_mean_ring{c}"] for c, ring in enumerate(rings)])
+
+        theringbool = rings[thering][f"ring{thering}_bool"]
+        M = M[theringbool].copy()
+        M1M2 = M1M2[theringbool].copy()
+        nOmega = nOmega[theringbool].copy()
+
+    # beging the reordering of the nodes in the unstructured point set corresponding to the planar curve vertices
+    pwdist = pairwise_distances(M)
+
+    thetree = minimum_spanning_tree(pwdist)
+
+    G = nx.Graph(thetree)
+
+    # find the longest path in a tree using two successive bfs searches.
+    bfs_1 = nx.bfs_tree(G, 0)
+    first_endpoint = list(bfs_1.edges())[-1][-1]
+
+    bfs_2 = nx.bfs_tree(G, first_endpoint)
+    second_endpoint = list(bfs_2.edges())[-1][-1]
+
+    best_path = nx.shortest_path(G, first_endpoint, second_endpoint)
+
+    # segments need to be in order.
+    M1M2_ord = np.zeros((n, 2, 3))
+
+    for c, curr in enumerate(M1M2[best_path][:-1]):
+        # check if the current should be flipped.
+        next = M1M2[best_path][c+1]
+        # only flip the current one, if the first index appears in the following segment.
+        if np.allclose(next[1] - curr[0], np.zeros(3), atol=1e-5) or np.allclose(next[0] - curr[0], np.zeros(3), atol=1e-5):
+            flipped = curr[::-1].copy()
+            M1M2_ord[c] = flipped
+        else:
+            M1M2_ord[c] = curr.copy()
+
+    M1M2_ord[-1] = M1M2[best_path][-1]
+
+    nOmega_ord = nOmega[best_path]
+
+    W = np.zeros((3, 1))
+
+    for nOmega, (m1, m2) in zip(nOmega_ord, M1M2_ord):
+        det = np.linalg.norm(np.cross(m2-m1, P-m1))
+        detover2 = det / 2
+        area += detover2
+        PM = (m1+m2)/2-P
+
+        # # update W vector. Cycle over the m elements of the resulting W vector.
+        for m in range(3):
+            num = 0
+            for j in range(3):
+                for k in range(3):
+                    # element wise multiplication of segment middle point jth element and the kth element of the triangle vector.
+                    num += eps[m, j, k]*PM[j]*nOmega[k]
+
+            denom = PM @ nOmega
+
+            with catch_warnings():
+                filterwarnings("error")
+
+                try:
+                    if verbose == True:
+                        print("num, denom, det", num, denom, det)
+                        print("increment", num / denom * det)
+
+                    inc = num / denom * det
+                    W[m] += inc
+                except Warning as e:
+                    if verbose == True:
+                        print("error found: ", e)
+                    pass
+
+    return M[best_path], nOmega_ord, M1M2_ord, W, area, nP
+
+
+def describe_heuristics(themesh : mesh.Mesh, centreline : np.ndarray, tangent_vectors : np.ndarray, k =1):
+
+    # read the centreline, start and end points and the tangent vectors.
+    ct = centreline 
+    P1 = ct[0]
+    P2 = ct[-1]
+    ct_vecs = tangent_vectors
+    n = len(ct)
+    thesections = np.arange(0, n)
+
+    sections2d = []
+
+    for thesection in tqdm(thesections[::k], total=int(n/k)):
+        if (np.linalg.norm(ct_vecs[thesection]))**2 < 1e-6 :
+            print("null vector!")
+            
+        else: 
+            thevec = ct_vecs[thesection] / np.linalg.norm(ct_vecs[thesection])
+            intersect = mesh_intersect(themesh, ct[thesection], thevec)
+            if intersect is not None:
+                polyline3d = intersect[0]
+                section2d, _, _ = to2D(polyline3d, ct_vecs[thesection], returnTransform=True, verbose=False)
+                sections2d.append(section2d)
+
+    # the three descriptors under consideration are these. 
+    
+    areas = []
+    aspect_ratios = []
+    dhs = []
+
+    tortuosity = np.sum(np.linalg.norm(ct[1:]-ct[:-1], axis =1)) / np.linalg.norm(P2-P1)
+
+
+    for section2d in sections2d:
+        try:
+            description = describe(section2d)
+            areas.append(description["area"])
+            dhs.append(description["hydraulic_diameter"])
+            aspect_ratios.append(description["ellipse_aspect_ratio"])
+            
+        except ValueError:
+            print("invalid section")   
+    
+    return areas, np.mean(areas), aspect_ratios, np.mean(aspect_ratios), dhs, np.mean(dhs), tortuosity
 
 DESCRIPTOR_MAP = {"area": {"name": "area",
                            "unit": "m$^2$",

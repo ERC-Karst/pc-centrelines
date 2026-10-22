@@ -29,7 +29,7 @@ f = ellipse(1, 2, np.pi/2) + np.array([2, 7])
 # make the b square concave by adding reentrants.
 b1 = np.vstack((b, [1, 1]))
 
-d_cut = pcc.geometry.below_height_fill(d, 0.5)
+d_cut = pcc.geometry.return_below_fill_height(d, 0.5)
 
 """Main tests"""
 

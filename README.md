@@ -2,7 +2,11 @@
 
 A collection of routines for the extraction of centrelines from unstructured point cloud data.
 
-[![package build and test](https://github.com/ERC-Karst/pc-centrelines/actions/workflows/python-app.yml/badge.svg?event=push)](https://github.com/ERC-Karst/pc-centrelines/actions/workflows/python-app.yml)
+[![DOI](https://zenodo.org/badge/956537585.svg)](https://doi.org/10.5281/zenodo.23564371)
+
+
+[![Python application](https://github.com/ERC-Karst/pc-centrelines/actions/workflows/python-app.yml/badge.svg)](https://github.com/ERC-Karst/pc-centrelines/actions/workflows/python-app.yml)
+
 
 This is a companion to the publication entitled: 
 

@@ -12,11 +12,8 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Requires-Dist: aiohappyeyeballs==2.6.1
-Requires-Dist: aiohttp==3.13.3
-Requires-Dist: aiosignal==1.4.0
 Requires-Dist: archspec==0.2.5
 Requires-Dist: asttokens==2.2.1
-Requires-Dist: attrs==25.4.0
 Requires-Dist: backcall==0.2.0
 Requires-Dist: backports.zstd==1.3.0
 Requires-Dist: blinker==1.9.0
@@ -25,11 +22,8 @@ Requires-Dist: Brotli==1.2.0
 Requires-Dist: certifi==2023.7.22
 Requires-Dist: cffi==2.0.0
 Requires-Dist: charset-normalizer==3.3.0
-Requires-Dist: click==8.3.1
 Requires-Dist: colorama==0.4.6
 Requires-Dist: comm==0.1.3
-Requires-Dist: contourpy==1.3.3
-Requires-Dist: cycler==0.12.1
 Requires-Dist: dash==4.0.0
 Requires-Dist: debugpy==1.6.7
 Requires-Dist: decorator==5.1.1
@@ -38,9 +32,7 @@ Requires-Dist: docutils==0.22.4
 Requires-Dist: executing==1.2.0
 Requires-Dist: ezdxf==1.4.2
 Requires-Dist: Flask==3.1.3
-Requires-Dist: fonttools==4.61.1
 Requires-Dist: frozendict==2.4.7
-Requires-Dist: frozenlist==1.7.0
 Requires-Dist: h2==4.3.0
 Requires-Dist: hpack==4.1.0
 Requires-Dist: hyperframe==6.1.0
@@ -59,38 +51,27 @@ Requires-Dist: jsonpointer==3.0.0
 Requires-Dist: jupyter_client==8.3.0
 Requires-Dist: jupyter_core==5.3.1
 Requires-Dist: jupyterlab-widgets==3.0.9
-Requires-Dist: kiwisolver==1.4.9
-Requires-Dist: laspy==2.7.0
 Requires-Dist: lazrs==0.8.1
-Requires-Dist: libmambapy==2.5.0
 Requires-Dist: llvmlite==0.50.0
 Requires-Dist: loguru==0.7.3
 Requires-Dist: m2r2==0.3.4
 Requires-Dist: MarkupSafe==3.0.3
-Requires-Dist: matplotlib==3.10.8
 Requires-Dist: matplotlib-inline==0.1.6
-Requires-Dist: menuinst==2.4.2
 Requires-Dist: mistree==2.0.0
 Requires-Dist: mistune==0.8.4
 Requires-Dist: mplstereonet==0.6.2
 Requires-Dist: msgpack==1.1.2
-Requires-Dist: multidict==6.7.1
 Requires-Dist: munkres==1.1.4
 Requires-Dist: narwhals==2.17.0
 Requires-Dist: nest-asyncio==1.5.6
-Requires-Dist: networkx==3.6.1
 Requires-Dist: numba==0.68.0
-Requires-Dist: numpy==2.4.2
 Requires-Dist: numpy-stl==3.2.0
 Requires-Dist: open3d==0.19.0
 Requires-Dist: packaging==26.0
 Requires-Dist: parso==0.8.3
 Requires-Dist: pickleshare==0.7.5
-Requires-Dist: pillow==12.1.1
-Requires-Dist: pip==26.0.1
 Requires-Dist: platformdirs==3.8.1
 Requires-Dist: plotly==6.5.2
-Requires-Dist: pluggy==1.6.0
 Requires-Dist: pooch==1.7.0
 Requires-Dist: prompt-toolkit==3.0.39
 Requires-Dist: propcache==0.3.1
@@ -99,13 +80,11 @@ Requires-Dist: pure-eval==0.2.2
 Requires-Dist: pycosat==0.6.6
 Requires-Dist: pycparser==2.22
 Requires-Dist: Pygments==2.15.1
-Requires-Dist: pyparsing==3.3.2
 Requires-Dist: PySocks==1.7.1
 Requires-Dist: pytest==9.1.1
 Requires-Dist: python-dateutil==2.8.2
 Requires-Dist: python-utils==3.9.1
 Requires-Dist: pyvista==0.42.3
-Requires-Dist: pywin32==306
 Requires-Dist: PyYAML==6.0.3
 Requires-Dist: pyzmq==25.1.0
 Requires-Dist: requests==2.31.0
@@ -114,7 +93,6 @@ Requires-Dist: robust_laplacian==1.0.0
 Requires-Dist: ruamel.yaml==0.18.17
 Requires-Dist: ruamel.yaml.clib==0.2.15
 Requires-Dist: scikit-learn==1.8.0
-Requires-Dist: scipy==1.17.1
 Requires-Dist: scooby==0.7.4
 Requires-Dist: setuptools==69.2.0
 Requires-Dist: shapely==2.1.2
@@ -125,23 +103,21 @@ Requires-Dist: tornado==6.3.2
 Requires-Dist: tqdm==4.67.3
 Requires-Dist: traitlets==5.9.0
 Requires-Dist: truststore==0.10.4
-Requires-Dist: typing_extensions==4.15.0
 Requires-Dist: unicodedata2==17.0.1
 Requires-Dist: urllib3==2.0.6
-Requires-Dist: vtk==9.5.2
 Requires-Dist: wcwidth==0.2.6
 Requires-Dist: Werkzeug==3.1.6
 Requires-Dist: wheel==0.46.3
 Requires-Dist: win_inet_pton==1.1.0
 Requires-Dist: win32_setctime==1.2.0
-Requires-Dist: wslink==2.5.0
-Requires-Dist: yarl==1.23.0
 Requires-Dist: zipp==3.23.0
 Requires-Dist: zstandard==0.25.0
 
 # pc-centrelines
 
 A collection of routines for the extraction of centrelines from unstructured point cloud data.
+
+[![package build and test](https://github.com/ERC-Karst/pc-centrelines/actions/workflows/python-app.yml/badge.svg?event=push)](https://github.com/ERC-Karst/pc-centrelines/actions/workflows/python-app.yml)
 
 This is a companion to the publication entitled: 
 

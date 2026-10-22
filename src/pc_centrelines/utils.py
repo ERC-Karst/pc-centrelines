@@ -293,8 +293,8 @@ def trim_adjust(ct1: np.ndarray, ct2: np.ndarray, eps: float) -> tuple:
         ct2[::flip][-1] - ct1_parametrised,  axis=1))
     idx_ct2_2 = np.argmin(np.linalg.norm(ct1[-1] - ct2_parametrised,  axis=1))
 
-    P = ct1_parametrised[idx_ct1_1:idx_ct1_2]
-    Q = ct2_parametrised[idx_ct2_1:idx_ct2_2]
+    P = ct1_parametrised[idx_ct1_1:idx_ct1_2+1]
+    Q = ct2_parametrised[idx_ct2_1:idx_ct2_2+1]
 
     # projection of a point on a segment.
     # if qprime - Q[1] @ qprim - Q[0] = -1, then Q[0] = qprime

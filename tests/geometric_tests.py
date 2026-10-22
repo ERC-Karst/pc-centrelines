@@ -29,18 +29,18 @@ f = ellipse(1, 2, np.pi/2) + np.array([2, 7])
 # make the b square concave by adding reentrants.
 b1 = np.vstack((b, [1, 1]))
 
-d_cut = pcc.geometry.return_below_fill_height(d, 0.5)
+d_cut = pcc.geometry.return_below_fill_height(d, 0.5)[0]
 
 """Main tests"""
 
 
-@pytest.mark.parametrize("test_input,expected", [(a, 1), (b, 4), (c, 9), (d, np.pi), (e, 2*np.pi), (f, 2*np.pi)])
+@pytest.mark.parametrize("test_input,expected", [(a, 1), (b, 4), (c, 9), (d, np.pi), (e, 2*np.pi), (f, 2*np.pi), (d_cut, np.pi/2)])
 def test_area(test_input, expected):
     assert pcc.geometry.compute_ngon_area(
         test_input) == pytest.approx(expected, abs=1e-4)
 
 
-@pytest.mark.parametrize("test_input,expected", [(a, 4), (b, 8), (c, 12), (d, 2*np.pi)])
+@pytest.mark.parametrize("test_input,expected", [(a, 4), (b, 8), (c, 12), (d, 2*np.pi), (d_cut, np.pi + 2)])
 def test_perimeter(test_input, expected):
     assert pcc.geometry.compute_ngon_perimeter(
         test_input) == pytest.approx(expected, abs=1e-4)
@@ -83,7 +83,7 @@ def test_maxpairwise_distance(test_input, expected):
         test_input) == pytest.approx(expected, abs=1e-3)
 
 
-@pytest.mark.parametrize("test_input,expected", [(a, 1), (b, 1), (c, 1), (d, 1), (e, 1), (f, 1)])
+@pytest.mark.parametrize("test_input,expected", [(a, 1), (b, 1), (c, 1), (d, 1), (e, 1), (f, 1), (d_cut, 1)])
 def test_solidity(test_input, expected):
     assert pcc.compute_polygon_solidity(
         test_input) == pytest.approx(expected, abs=1e-3)

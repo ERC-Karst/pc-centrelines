@@ -9,6 +9,8 @@ def square(s, reverse=False):
     else:
         return np.array(([0, 0], [s, 0], [s, s], [0, s]))
 
+    
+
 
 a = square(1)
 b = square(2)
@@ -21,12 +23,13 @@ def ellipse(a, b, theta, npoints=2000):
 
 
 d = ellipse(1, 1, 0)
-e = ellipse(2, 1, 0)
-f = ellipse(1, 2, np.pi/2)
+e = ellipse(2, 1, 0) + np.array([-1, 1])
+f = ellipse(1, 2, np.pi/2) + np.array([2, 7])
 
 # make the b square concave by adding reentrants.
 b1 = np.vstack((b, [1, 1]))
 
+d_cut = pcc.geometry.below_height_fill(d, 0.5)
 
 """Main tests"""
 
@@ -60,6 +63,11 @@ def test_ellipse(test_input, expected):
     _, ellipse_area, _, aspect_ratio, _, _, _ = pcc.geometry.fit_ellipse(
         test_input, npoints=4000)
     assert (ellipse_area, aspect_ratio) == pytest.approx(expected, abs=1e-3)
+
+
+@pytest.mark.parametrize("test_input,expected", [(a, [0.5, 0.5]), (b, (1,1)), (c, (1.5, 1.5)), (d, (0,0)), (e, (-1,1)), (f, (2,7))])
+def test_centre_of_gravity(test_input, expected):
+    assert pcc.centre_of_gravity(test_input) == pytest.approx(expected, abs=1e-3)
 
 
 @pytest.mark.parametrize("test_input,expected", [(a, np.sqrt(2)/2), (b, np.sqrt(2)), (c, 3*np.sqrt(2)/2), (d, 1), (e, 2), (f, 2)])

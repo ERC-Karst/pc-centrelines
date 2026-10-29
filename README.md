@@ -64,7 +64,7 @@ These executables are written in C++ need to be compiled with a C++ compiler, e.
 
 These also call on a series of C++ libraries for handling meshes, pointclouds and basic geometric tools now located in clibs.
 
-Navigate to ```./pc-centrelines/src/pc_centrelines/centreliner``` and run ````make ``` to compile the following executables: ``voxelize.exe`` and ``bspliner.exe`` 
+Navigate to ```./pc-centrelines/src/pc_centrelines/centreliner``` and run ```make ``` to compile the following executables: ``voxelize.exe`` and ``bspliner.exe`` 
 
 ## Example codes
 
@@ -163,7 +163,7 @@ We explore the sensitivity of descriptor distribution regarding the choice of ce
 This metric is defined as: 
 
 $$
-l_1(u, v) =  \int_{-\infty}^{+\infty} |U-V| 
+l_1(u, v) =  \int_{-\infty}^{+\infty} |U(x)-V(x)| dx 
 $$
 
 Here $u$ refers to the distribution of descriptors calculated using the analytic datums and associated tangent vectors as a benchmark, while $v$ represents the distribution of descriptors associated with a specific centrelining algorithm and the tangent vector approximation.

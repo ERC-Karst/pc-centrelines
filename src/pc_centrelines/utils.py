@@ -177,23 +177,42 @@ def return_largest_component(points: np.ndarray,
     print(len(points))
     return CC0
 
-# legacy using cloudComPy
-    # import cloudComPy as cc
+def footprint(points : np.ndarray, voxelsize: float, direction : int = 2, subsample : int = 1,  verbose : bool = False)-> np.ndarray:
+    """A convenience function wich returns the pixelised footprint of a mesh
+    """
 
-    # cloud = cc.ccPointCloud()
-    # cloud.coordsFromNPArray_copy(pointcloud)
+    axes = {0,1,2} - {direction}
+    if verbose is True:
+        print("chosen set of directions: ", axes)
+    ax1, ax2 = axes
 
-    # out = cc.ExtractConnectedComponents([cloud], octree_level, min_component_size)
-    # print(f"there were {len(out[1])} connected components.")
-    # if len(out[1]) > 0:
-    #     largest = out[1][0]
-    # else:
-    #     largest = cloud
 
-    # # return the coordinates of the cloud
-    # return largest.toNpArrayCopy()
+    max1, min1 = np.max(points[::50, ax1]), np.min(points[::50, ax1])
+    max2, min2 = np.max(points[::50, ax2]), np.min(points[::50, ax2])
 
-# convenience function to go from numpy to o3d needed by LBC
+    n1 = np.ceil((max1 - min1) / voxelsize).astype(int)
+    n2 = np.ceil((max2 - min2) / voxelsize).astype(int)
+
+    arr = np.zeros((n2, n1))
+    xi = np.linspace(min1, max1, n1)
+    yi = np.linspace(min2, max2, n2)
+    xxi, yyi = np.meshgrid(xi, yi)
+    
+    if verbose is True:
+        print("chosen voxel size: ", voxelsize)
+        print("arr shape: ", arr.shape)
+        print("xxi shape: ", xxi.shape)
+
+    for j, row in enumerate(arr):
+        for i, col in enumerate(row):
+            squaredist = (points[::subsample, ax1] - xxi[j,i])**2 + (points[::subsample, ax2] - yyi[j,i])**2
+            iscovered = np.any(squaredist < 2*voxelsize**2)
+            arr[j, i] = iscovered.astype(int)
+
+    return arr, [min1, max1, min2, max2]
+    
+
+
 
 
 def array_to_o3d(pointcloud: np.ndarray):
@@ -204,33 +223,11 @@ def array_to_o3d(pointcloud: np.ndarray):
 
     return cloud
 
-# at each point in the centreline, use its two neighbours to estimate the passage direction.
-
-
-def return_centreline_parametrisation(centreline, dt=1):
-    from scipy.interpolate import interp1d
-
-    curvilinear_coords = np.hstack([np.zeros(1), np.cumsum(
-        np.linalg.norm(np.diff(centreline, axis=0), axis=1))])
-    xinterp = interp1d(curvilinear_coords, centreline[:, 0])
-    yinterp = interp1d(curvilinear_coords, centreline[:, 1])
-    zinterp = interp1d(curvilinear_coords, centreline[:, 2])
-
-    tmax = np.floor(np.max(curvilinear_coords))
-    ti = np.hstack([np.arange(0, tmax, dt), tmax])
-    interpolated_centreline = np.vstack(
-        [xinterp(ti), yinterp(ti), zinterp(ti)]).T
-
-    vectors = interpolated_centreline[:-2] - interpolated_centreline[2:]
-    norm_vectors = np.linalg.norm(vectors, axis=1)
-    normed_vectors = vectors / np.expand_dims(norm_vectors, -1)
-
-    return interpolated_centreline, ti[1:-1], normed_vectors
-
 
 # a convenience function to resample a centreline using a 1d interpolator.
 def parametrise_ct(ct: np.ndarray, eps: float) -> np.ndarray:
-    """reparametrises a centreline using linear interpolation for upsampling and downsampling"""
+    """reparametrises a centreline using linear interpolation 
+    for upsampling and downsampling"""
 
     t = np.zeros(ct.shape[0])
 
@@ -272,6 +269,10 @@ def parametrise_ct(ct: np.ndarray, eps: float) -> np.ndarray:
 
 
 def trim_adjust(ct1: np.ndarray, ct2: np.ndarray, eps: float) -> tuple:
+    """
+    convenience function to flip, trim and resample polyline sequences
+    before calculating a discrete Fréchet metric.
+    """
     # we essentially reparametrise the lines to begin as close as possible.
 
     ct1_ct2_nearest = np.argmin(

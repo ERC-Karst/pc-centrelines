@@ -29,6 +29,8 @@ LBC_ARGS = dict(init_attraction=0.5, init_contraction=0.5, down_sample=0.5)
 
 
 def return_LBC_centreline(meshdata,
+                          P1 : np.ndarray = None,
+                          P2 : np.ndarray = None,
                           ct_args: dict = CT_ARGS,
                           lbc_args: dict = LBC_ARGS) -> dict:
     """A function encapsulating Laplacian-Based-contraction on a mesh
@@ -37,9 +39,9 @@ def return_LBC_centreline(meshdata,
     :type mesh: _type_
     :param adjacent_triangles: a numpy array.
     :type adjacent_triangles: _type_
-    :param ct_down_sample: _description_, defaults to CENTRELINE_DOWN_SAMPLE
-    :type ct_down_sample: float, optional
-    :param lbc_args: _description_, defaults to LBC_ARGS
+    :param ct_args: centreline downsampling and processing parameter, defaults to CT_ARGS
+    :type ct_args: dict, optional
+    :param lbc_args: Laplacian contraction dependent parameters, defaults to LBC_ARGS
     :type lbc_args: dictionary, optional
     :return: An array of 3d coordinates
     :rtype: np.ndarray
@@ -56,6 +58,7 @@ def return_LBC_centreline(meshdata,
 
     # convert to open3d object-
     shifted_pcd = array_to_o3d(pcd - local_shift)
+
 
     # set up the Laplacian-based contraction algorithm
     lbc = LBC(point_cloud=shifted_pcd, **lbc_args)
@@ -102,33 +105,69 @@ def return_LBC_centreline(meshdata,
     for c, branch in enumerate(branch_index):
         for idx in branch:
             fullG.nodes[idx]["branch"].append(c)
+    
     print(f"added node coordinates to graph in  {time() - s:.4f}s")
     s = time()
 
     # find the longest path on the tree: our centreline.
 
     # identify the leaves of the tree
-    leaf = np.argwhere(degree == 1).flatten().astype(int)
+    leaves = np.argwhere(degree == 1).flatten().astype(int)
 
-    print(
-        f"this minimum spanning tree has {len(leaf)} leaves. Need to identify the best path.")
+      # shift start and end points
+    if P1 is not None and P2 is not None:
+   
+        print(f"this minimum spanning tree has {len(leaves)} leaves. P1 and P2 were defined.")
 
-    # the shortest path linking our two extremities.
-    best_shortest_path = 0
-    best_comb = (0, 1)
+        # find the nearest index to P1.
+        d1 = 1e10
+        d2 = 1e10 
+        idxP1 = None
+        idxP2 = None
+        # cycle over the graph nodes and track the indices minimising distance to P1 and P2.
 
-    # iterate over combination of leaf indices to find the longest path (in terms of nodes) in the tree.
-    for comb in combinations(list(range(len(leaf))), 2):
-        i, j = comb
-        centreline_path = nx.shortest_path_length(fullG, leaf[i], leaf[j])
-        if centreline_path >= best_shortest_path:
-            best_shortest_path = centreline_path
-            best_comb = comb
+        for leaf in leaves:
+            print(f"checking leaf {leaf}")
+            pos = fullG.nodes[leaf]["pos"]
+            # euclidean distances to current node.
+            dcur1 = np.minimum(d1, np.linalg.norm(pos-P1))
+            dcur2 = np.minimum(d1, np.linalg.norm(pos-P2))
 
-    i, j = best_comb
-    best_path = np.array(nx.shortest_path(fullG, leaf[i], leaf[j])).astype(int)
+            if dcur1 < d1:
+                d1 = dcur1
+                idxP1 = leaf
+
+            if dcur2 < d2:
+                d2 = dcur2
+                idxP2 = leaf
+                
+        best_path = np.array(nx.shortest_path(fullG, idxP1, idxP2)).astype(int)
+
+    else:
+
+        print(
+            f"this minimum spanning tree has {len(leaves)} leaves, no P1 or P2 defined.\n Need to identify the best path.")
+
+        # the shortest path linking our two extremities.
+        best_shortest_path = 0
+        best_comb = (0, 1)
+
+        # iterate over combination of leaf indices to find the longest path (in terms of nodes) in the tree.
+        for comb in combinations(list(range(len(leaves))), 2):
+            i, j = comb
+            centreline_path = nx.shortest_path_length(fullG, leaves[i], leaves[j])
+            if centreline_path >= best_shortest_path:
+                best_shortest_path = centreline_path
+                best_comb = comb
+
+        i, j = best_comb
+        best_path = np.array(nx.shortest_path(fullG, leaves[i], leaves[j])).astype(int)
+        
+        P1 = cc0_downsampled_coords[best_path[0]]
+        P2 = cc0_downsampled_coords[best_path[-1]]
 
     return dict(sparse_cloud=cc0_downsampled_coords,
                 mst_graph=fullG,
                 centreline=best_path,
-                skeleton_cloud_size=np.asarray(lbc.contracted_point_cloud.points).shape[0])
+                skeleton_cloud_size=np.asarray(lbc.contracted_point_cloud.points).shape[0],
+                P1 = P1,  P2 = P2)
